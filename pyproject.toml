@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "executors"
+version = "0.0.1"
+authors = [
+  { name="Volodymyr Zawatsky", email="volodymyr.zawatsky@gmail.com" },
+]
+description = "Executers"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/madzwb/executors"
+"Bug Tracker" = "https://github.com/madzwb/executors/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# [tool.setuptools]
+# packages = ["executors"]
