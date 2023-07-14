@@ -1,10 +1,11 @@
 [build-system]
-requires = ["setuptools>=65.0"]
+requires = ["setuptools>=68.0", "setuptools_scm[toml]>=7.1.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "executors"
-version = "0.0.1"
+# version = "0.0.1"
+dynamic = ["version"]
 authors = [
   { name="Volodymyr Zawatsky", email="volodymyr.zawatsky@gmail.com" },
 ]
@@ -17,12 +18,21 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+dependencies = ["registrator"]
+
 [project.urls]
 "Homepage" = "https://github.com/madzwb/executors"
 "Bug Tracker" = "https://github.com/madzwb/executors/issues"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+# See https://github.com/pypa/setuptools_scm/blob/main/pyproject.toml
+[tool.setuptools_scm]
+# "calver-by-date" "guess-next-dev" "no-guess-dev" "post-release" "python-simplified-semver" "release-branch-semver"
+version_scheme = "release-branch-semver"
+# "dirty-tag" "node-and-date" "node-and-timestamp"
+local_scheme =  "no-local-version"
 
 # [tool.setuptools]
 # packages = ["executors"]
+
+# [tool.setuptools.packages.find]
+# where = ["src"]
