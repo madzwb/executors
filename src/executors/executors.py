@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import concurrent.futures
-import datetime
+# import datetime
 import multiprocessing
 import multiprocessing.queues
 # import multiprocessing.managers
 import os
+import logging
 import queue
 import sys
 import threading
@@ -15,13 +16,28 @@ import time
 
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
-from multiprocessing import JoinableQueue
+# from multiprocessing import JoinableQueue
 from typing import Any, Callable, cast
 
-import config
-import registry
+# import config
+# import registrator
+CONFIG = "config"
+if  \
+        CONFIG not in sys.modules\
+    or  CONFIG not in globals()\
+    or  CONFIG not in locals()\
+:
+    class Config:
+        DEBUG = True\
+                    if hasattr(sys, "gettrace") and sys.gettrace()\
+                    else\
+                False
+        
+    config = Config()
 
-from logger import logger, init as logger_init
+# from logger import logger#, init as logger_init
+logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+logger.addHandler(logging.NullHandler())
 
 DUMMY = 0
 
@@ -454,7 +470,7 @@ class ProcessPoolExecutor(PoolExecutor):
         self.executor   = self.creator(os.cpu_count())
         self.results    = queue.Queue()
 
-    def join(self, timeout= None) -> bool:
+    def join(self, timeout = None) -> bool:
         if not self.in_parent:
             raise RuntimeError("Join alowed only from parent process aka creator.")
         concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
@@ -500,12 +516,11 @@ class Worker(Executor):
                         ""
                     )
         # Update 'config' module with conf
-        # print(conf)
-        if conf is not None:
-            for k,v in conf.items():
-                setattr(config, k, conf[k])
+        if CONFIG in sys.modules and conf is not None:
+            sys.modules[CONFIG].__call__(conf)
             # logger_init()
             logger.debug(f"{Executor.debug_info(caller)} logging prepeared.")
+
         logger.debug(f"{Executor.debug_info(caller)} runned.")
         while True:
             task = None
@@ -813,7 +828,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
                     f"{task} scheduled."
                 )
             return True
-        elif self.iworkers.value:
+        elif self.iworkers.value or not self.tasks.empty() or self.tasks.qsize():
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
@@ -875,12 +890,19 @@ class ProcessExecutor(ThreadExecutor):
         executor.iworkers   = iworkers
         logger.debug(
             f"{ProcessesExecutor.debug_info(executor.__class__.__name__)}. "
-            f"Dummy {executor.__class__.__name__} created and setuped."
+            f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
         Worker.worker(executor, conf)
 
     def create_executor(self, /, *args, **kwargs):
-        conf = {k : getattr(config,k,None) for k in config.FIELDS}
+        # Create configuration for process
+        # (copy module environment to dictionary)
+        # https://peps.python.org/pep-0713/
+        conf =  sys.modules[CONFIG].__call__()  \
+                    if CONFIG in sys.modules    \
+                    else                        \
+                config
+        
         return  self.creator(
                     target  = self.worker,
                     args    = (
@@ -1089,7 +1111,7 @@ class ProcessesExecutor(Workers):
         executor.iworkers   = iworkers
         logger.debug(
             f"{ProcessesExecutor.debug_info(executor.__class__.__name__)}. "
-            f"Dummy {executor.__class__.__name__} created and setuped."
+            f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
         Workers.worker(executor, conf)#, tasks, results, create)
 
@@ -1129,8 +1151,6 @@ class ProcessesExecutor(Workers):
                         or  self.actives < self.iworkers.value # Process in starting
                     )\
                 :
-                # self.status()
-                #and len(multiprocessing.active_children()) <= self.iworkers.value
                 # Event raised, but tasks is empty.
                 # Skip child process creation request.
                 self.create.clear()
@@ -1151,10 +1171,15 @@ class ProcessesExecutor(Workers):
                     "Going to wait for creation request."
                 )
             else:
-                # self.status()
                 # Create child process.
                 self.create.clear()
-                conf = {k : getattr(config,k,None) for k in config.FIELDS}
+                # Create configuration for process
+                # (copy module environment to dictionary)
+                # https://peps.python.org/pep-0713/
+                conf =  sys.modules[CONFIG].__call__()  \
+                            if CONFIG in sys.modules    \
+                            else                        \
+                        config
                 worker = self.creator(
                             target  =   self.worker,
                             args    =   (
@@ -1180,7 +1205,7 @@ class ProcessesExecutor(Workers):
                     continue
         return True
     
-    def submit(self, task: Callable|None) -> bool:#, tasks, results, create, /, *args, **kwargs) -> bool:
+    def submit(self, task: Callable|None, /, *args, **kwargs) -> bool:#, tasks, results, create, /, *args, **kwargs) -> bool:
         # Remove reference to executor befor adding to tasks' queue.
         if task is not None and hasattr(task, "executor"):
             task.executor = None
@@ -1201,7 +1226,7 @@ class ProcessesExecutor(Workers):
                     f"{self.debug_info(self.__class__.__name__)}. "
                     f"Process creation requested."
                 )
-        elif self.iworkers.value:
+        elif self.iworkers.value or not self.tasks.empty() or self.tasks.qsize():
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
@@ -1248,11 +1273,11 @@ class ProcessesExecutor(Workers):
 #     #     callmethod = object.__getattribute__(self, '_callmethod')
 #     #     return callmethod('__delattr__', (key,))
 
-class EXECUTORS(registry.REGISTRY): ...
+# class EXECUTORS(registry.REGISTRY): ...
 
-EXECUTORS.register("Executor", __name__, globals(), Executor)
-registry = EXECUTORS()
-if config.DEBUG:
-    logger.debug(f"Executors registered:{EXECUTORS()}.")
+# EXECUTORS.register("Executor", __name__, globals(), Executor)
+# registry = EXECUTORS()
+# if config.DEBUG:
+#     logger.debug(f"Executors registered:{EXECUTORS()}.")
 
-pass
+# pass
