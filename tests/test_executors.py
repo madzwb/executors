@@ -28,13 +28,17 @@ from abc import ABC, abstractmethod
 #     full = (path + "/" + filename)
 #     with open(full,"w") as file:
 #         pass
-sys.path.append(os.path.dirname(__file__) + "/../")
-from src.executors.executors import IExecutor, Executor, logger
-import registrator.registrator# import REGISTRATOR
+
+# sys.path.append(os.path.dirname(__file__) + "/../")
+# sys.path.append(os.path.dirname(__file__) + "/../src/")
+# from src.executors.executors import IExecutor, Executor, logger
+from executors.executors import IExecutor, Executor, logger
+import registrator.registrator
 
 class EXECUTERS(registrator.registrator.REGISTRATOR):
     pass
-EXECUTERS.register("Executor", "src.executors.executors", vars(sys.modules["src.executors.executors"]), IExecutor)
+# EXECUTERS.register("Executor", "src.executors.executors", vars(sys.modules["src.executors.executors"]), IExecutor)
+EXECUTERS.register("Executor", "executors.executors", vars(sys.modules["executors.executors"]), IExecutor)
 registry = EXECUTERS()
 
 # from logger import logger, formatter, init as logger_init
@@ -51,6 +55,7 @@ registry = EXECUTERS()
 
 # logger.setLevel(logging.DEBUG)
 
+PROFILE = False
 TIMEOUT = 0.3
 TASKS   = 33
 
@@ -132,13 +137,14 @@ class ExecutorsTestCase(unittest.TestCase):
         for i in range(TASKS):
             result = Task(i)()
             self.results.append(result)
-        
-        self.profile = cProfile.Profile()
-        self.profile.enable()
+        if PROFILE:
+            self.profile = cProfile.Profile()
+            self.profile.enable()
 
     def tearDown(self):
-        self.profile.disable()
-        self.profile.print_stats(sort="ncalls")
+        if PROFILE:
+            self.profile.disable()
+            self.profile.print_stats(sort="ncalls")
 
     def test_MainThreadExecutor(self):
         name = "mainthread"

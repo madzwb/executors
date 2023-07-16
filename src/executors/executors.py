@@ -379,6 +379,10 @@ class PoolExecutor(Executor):
         self.parent_pid = parent_pid
         self.futures    = []
 
+        if self.creator:
+            self.executor   = self.creator(os.cpu_count())
+        self.results    = queue.Queue()
+
     @staticmethod
     def complete_action(future: Future):
         result = future.result()
@@ -412,30 +416,6 @@ class PoolExecutor(Executor):
             logger.error(f"{self.debug_info()}. Shutdown error.")
         return result
 
-
-class ThreadPoolExecutor(PoolExecutor):
-
-    in_parent_thread = InParentThread()
-    in_parent_process = InParentProcess()
-
-    @classmethod
-    def init(cls, /, *args, **kwargs) -> bool:
-        cls.creator = concurrent.futures.ThreadPoolExecutor
-        return True
-
-    def __init__(self, parent_pid = threading.current_thread().ident):
-        super(ThreadPoolExecutor, self).__init__(parent_pid)
-
-        self.executor   = self.creator(os.cpu_count())
-        self.results    = queue.Queue()
-    
-    def join(self, timeout= None) -> bool:
-        if threading.current_thread() in self.executor._threads:
-            raise RuntimeError("can't join from child.")
-
-        result = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
-        return True
-    
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if self.executor is not None and task is not None:
             logger.info(
@@ -449,12 +429,31 @@ class ThreadPoolExecutor(PoolExecutor):
             return True
         return False
 
+class ThreadPoolExecutor(PoolExecutor):
+
+    # in_parent_thread = InParentThread()
+    # in_parent_process = InParentProcess()
+
+    @classmethod
+    def init(cls, /, *args, **kwargs) -> bool:
+        cls.creator = concurrent.futures.ThreadPoolExecutor
+        return True
+
+    def __init__(self, parent_pid = threading.current_thread().ident):
+        super(ThreadPoolExecutor, self).__init__(parent_pid)
+
+    def join(self, timeout= None) -> bool:
+        if threading.current_thread() in self.executor._threads:
+            raise RuntimeError("can't join from child.")
+
+        result = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
+        return True
+    
     # def __bool__(self) -> bool:
     #     return True
 
 
 
-# TODO:
 class ProcessPoolExecutor(PoolExecutor):
 
     in_parent = InParentProcess()
@@ -467,28 +466,19 @@ class ProcessPoolExecutor(PoolExecutor):
     def __init__(self, parent_pid = multiprocessing.current_process().ident):
         super(ProcessPoolExecutor, self).__init__(parent_pid)
 
-        self.executor   = self.creator(os.cpu_count())
-        self.results    = queue.Queue()
-
     def join(self, timeout = None) -> bool:
         if not self.in_parent:
-            raise RuntimeError("Join alowed only from parent process aka creator.")
-        concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
+            raise RuntimeError("join alowed only from parent process aka creator.")
+        
+        restult = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
         return True
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if self.executor is not None and task is not None:
-            task.executor = None
-            logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
-                f"{task} scheduled. "
-            )
-            future = self.executor.submit(task, *args, **kwargs)
-            setattr(future, "parent", self)
-            future.add_done_callback(PoolExecutor.complete_action)
-            self.futures.append(future)
-            return True
+            task.executor = None # Remove binding for pickle
+            return super(ProcessPoolExecutor, self).submit(task, *args, **kwargs)
         return False
+
 
 
 """Worker"""
@@ -633,10 +623,11 @@ class Value():
     @value.setter
     def value(self, value: int) -> None:
         self._value = value
-    
+
 """Workers"""
 class Workers(Worker):
 
+    TRY_COUNT_MAX = 3
     max_cpus    = 1
 
     in_threads      = InChildThreads()
@@ -660,9 +651,10 @@ class Workers(Worker):
         if self.in_threads or self.in_processes:
             raise RuntimeError("can't join from child.")
         if self.iworkers.value >= self.max_workers:
-            # All workers created. Join child processes.
+            # All workers created. Join childs.
+            # TODO: try_count and timeout is not tested.
             try_count = 0
-            while(self.workers and try_count < 3):
+            while(self.workers and try_count < Workers.TRY_COUNT_MAX):
                 remove = []
                 for worker in self.workers:
                     info = ""
