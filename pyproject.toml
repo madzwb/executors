@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-dependencies = ["registrator"]
+dependencies = ["registrator@git+https://www.github.com/madzwb/registrator@0.1.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/madzwb/executors"
@@ -36,3 +36,26 @@ local_scheme =  "no-local-version"
 
 # [tool.setuptools.packages.find]
 # where = ["src"]
+
+[project.optional-dependencies]
+test = [
+    "pytest >= 7.4.0",
+]
+
+[tool.coverage.run]
+source = ["executors"]
+command_line = "-m unittest tests/test_executors.py"
+concurrency = ["thread", "multiprocessing"]
+omit = ["__init__.py"]
+
+[tool.tox]
+legacy_tox_ini = """
+  [tox]
+  envlist = py310, py311, py312
+  skip_missing_interpreters = true
+  minversion = 4.6.4
+
+  [testenv]
+  extras = test
+  commands = python -m pytest {posargs}
+"""
