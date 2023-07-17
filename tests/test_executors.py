@@ -33,9 +33,9 @@ from abc import ABC, abstractmethod
 # sys.path.append(os.path.dirname(__file__) + "/../src/")
 # from src.executors.executors import IExecutor, Executor, logger
 from executors.executors import IExecutor, Executor, logger
-import registrator.registrator
+import registrator.registrator as registrator
 
-class EXECUTERS(registrator.registrator.REGISTRATOR):
+class EXECUTERS(registrator.REGISTRATOR):
     pass
 # EXECUTERS.register("Executor", "src.executors.executors", vars(sys.modules["src.executors.executors"]), IExecutor)
 EXECUTERS.register("Executor", "executors.executors", vars(sys.modules["executors.executors"]), IExecutor)
@@ -55,7 +55,7 @@ registry = EXECUTERS()
 
 # logger.setLevel(logging.DEBUG)
 
-PROFILE = False
+PROFILING = False
 TIMEOUT = 0.3
 TASKS   = 33
 
@@ -137,12 +137,12 @@ class ExecutorsTestCase(unittest.TestCase):
         for i in range(TASKS):
             result = Task(i)()
             self.results.append(result)
-        if PROFILE:
+        if PROFILING:
             self.profile = cProfile.Profile()
             self.profile.enable()
 
     def tearDown(self):
-        if PROFILE:
+        if PROFILING:
             self.profile.disable()
             self.profile.print_stats(sort="ncalls")
 
@@ -241,5 +241,5 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
