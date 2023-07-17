@@ -53,9 +53,6 @@ def is_queue(o: Any) -> bool:
 
 
 
-
-
-
 class InMainProcess():
 
     def __get__(self, o, ot) -> bool:
@@ -200,6 +197,7 @@ class ActiveProcesses(Actives):
     @classmethod
     def len(cls) -> int:
         return len(multiprocessing.active_children())
+
 
 
 class Executor(IExecutor):
@@ -354,9 +352,9 @@ class PoolExecutor(Executor):
             and future.parent                   \
             and future.parent.results != result \
         :
-            future.parent.results.put_nowait(result)
+            future.parent.results.put_nowait(result) # type: ignore
             logger.info(
-                f"{future.parent.debug_info(future.parent.__class__.__name__)}. "
+                f"{future.parent.debug_info(future.parent.__class__.__name__)}. " # type: ignore
                 f"{result}"
             )
         else:
@@ -1026,32 +1024,6 @@ class ProcessesExecutor(Workers):
 
         self.iworkers   = multiprocessing.Value("i", 0)
 
-    # def __reduce__(self) -> str | tuple[Any, ...]:
-    #     return super().__reduce__()
-
-    # @classmethod
-    # def join(cls, worker):
-    #     # pid = multiprocessing.current_process()
-    #     # parent = multiprocessing.parent_process()
-
-    #     if not multiprocessing.parent_process() or multiprocessing.current_process().name == "MainProcess":
-    #     # if threading.current_thread().name == "MainProcess":
-    #         worker.join()
-    #         # while True:
-    #         #     print(f"Process:{multiprocessing.current_process()}. Try to wait on tasks: '{cls.tasks}'.")
-    #         #     cls.tasks.join()
-    #         #     print(f"All tasks: '{cls.tasks}' done.")
-    #         #     active = multiprocessing.active_children()
-    #         #     if active:
-    #         #         for child in active:
-    #         #             print(f"Process:{multiprocessing.current_process()}. Try to wait on child process: '{child}'.")
-    #         #             child.join(60)
-    #         #             print(f"Process:{multiprocessing.current_process()}. Wait for child process: '{child}' timedout.")
-    #         #         continue
-    #         #     else:
-    #         #         break
-    #     return
-
     def start(self) -> bool:
         if not self.started:
             def monitor(executor):
@@ -1111,13 +1083,13 @@ class ProcessesExecutor(Workers):
                 f"{self.debug_info(self.__class__.__name__)}. "
                 "Going to wait for creation request."
             )
-            while   self.create.wait()\
-                and not self.status()\
-                and self.iworkers.value > 0\
+            while   self.create.wait()      \
+                and not self.status()       \
+                and self.iworkers.value > 0 \
                 and (
                             self.tasks.empty()
                         or  not self.tasks.qsize()# <= 1
-                        or  self.actives < self.iworkers.value # Process in starting
+                        or  self.actives < self.iworkers.value # Process in starting # type: ignore
                     )\
                 :
                 # Event raised, but tasks is empty.
@@ -1129,7 +1101,7 @@ class ProcessesExecutor(Workers):
                         f"Skip creation request. "
                         f"Tasks' count={ self.tasks.qsize()}."
                     )
-                if len(multiprocessing.active_children()) < self.iworkers.value:
+                if len(multiprocessing.active_children()) < self.iworkers.value: # type: ignore
                     logger.debug(
                         f"{self.debug_info(self.__class__.__name__)}. "
                         "Skip creation request. "
@@ -1161,7 +1133,7 @@ class ProcessesExecutor(Workers):
                                             DUMMY # Create dummy
                                         )
                         )
-                self.iworkers.value += 1
+                self.iworkers.value += 1 # type: ignore
                 self.workers.append(worker)
                 worker.start()
                 logger.debug(
@@ -1195,7 +1167,7 @@ class ProcessesExecutor(Workers):
                     f"{self.debug_info(self.__class__.__name__)}. "
                     f"Process creation requested."
                 )
-        elif self.iworkers.value or not self.tasks.empty() or self.tasks.qsize():
+        elif self.iworkers.value or not self.tasks.empty() or self.tasks.qsize(): # type: ignore
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
@@ -1220,7 +1192,7 @@ class ProcessesExecutor(Workers):
                 f"tasks={self.tasks.qsize()} "
                 f"processes={len(multiprocessing.active_children())}, "
                 f"threads={threading.active_count()}, "
-                f"workers={self.iworkers.value}"
+                f"workers={self.iworkers.value}" # type: ignore
             ">."
         )
 
