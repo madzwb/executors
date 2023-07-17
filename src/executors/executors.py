@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import concurrent.futures
-# import datetime
 import multiprocessing
 import multiprocessing.queues
-# import multiprocessing.managers
 import os
 import logging
 import queue
@@ -12,32 +10,33 @@ import sys
 import threading
 import time
 
-# from multiprocessing.managers import NamespaceProxy
-
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
-# from multiprocessing import JoinableQueue
 from typing import Any, Callable, cast
 
-# import config
-# import registrator
-CONFIG = "config"
-if  \
-        CONFIG not in sys.modules\
-    or  CONFIG not in globals()\
-    or  CONFIG not in locals()\
-:
-    class Config:
-        DEBUG = True\
-                    if hasattr(sys, "gettrace") and sys.gettrace()\
-                    else\
-                False
-        
-    config = Config()
 
-# from logger import logger#, init as logger_init
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
-logger.addHandler(logging.NullHandler())
+if __name__ == "__main__":
+    # import config
+    import registrator.registrator as registrator
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+else:
+    CONFIG = "config"
+    if  \
+            CONFIG not in sys.modules\
+        or  CONFIG not in globals()\
+        or  CONFIG not in locals()\
+    :
+        class Config:
+            DEBUG = True\
+                        if hasattr(sys, "gettrace") and sys.gettrace()\
+                        else\
+                    False
+            
+        config = Config()
+    logger.addHandler(logging.NullHandler())
+
 
 DUMMY = 0
 
@@ -50,20 +49,20 @@ def is_queue(o: Any) -> bool:
             or  hasattr(o, "get_nowait") \
             or  hasattr(o, "put_nowait")
 
-# def strdatetime() -> str:
-#     return f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}"    
-
 
 
 class IExecutor(ABC):
 
     @classmethod
     def __init_subclass__(cls, /, *args, **kwargs) -> None:
-        cls.init()
+        cls.init(*args, **kwargs)
     
     @classmethod
     @abstractmethod
-    def init(cls) -> bool: ...
+    def init(cls,*args, **kwargs) -> bool: ...
+
+    @abstractmethod
+    def start(self) -> bool: ...
 
     @abstractmethod
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool: ...
@@ -248,13 +247,15 @@ class Executor(IExecutor):
     def __init__(self):
         self.parent     = None
         self.parent_pid = None
+        self.parent_tid = None
         self.executor   = None
         self.tasks      = None
         self.results    = None
         self.create     = None
-        self.childs     = {}
-        self.lock       = None # TODO
+        self.childs     = {} # class Executor
+        self.lock       = None # TODO:
         # self.exit       = None
+        self.started    = False
     
     # def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
     #     return False
@@ -265,6 +266,7 @@ class Executor(IExecutor):
     # def __bool__(self) -> bool:
     #     return False
 
+    # TODO: Rewrite
     def shutdown(self, wait = True, * , cancel = False) -> bool:
         result = False
         if self.childs:# and not self.is_dummy():
@@ -351,37 +353,20 @@ class Executor(IExecutor):
                     if config.DEBUG\
                     else\
                 f"{name}"
-        # return  strdatetime()\
-        #     +   (
-        #             f" - Process"
-        #             "("
-        #                 f"name='{process.name}', "
-        #                 f"pid={process.ident}, "
-        #                 f"parent={process._parent_pid}"
-        #             "), "
-        #             f"thread"
-        #             "("
-        #                 f"name='{thread.name}', "
-        #                 f"pid={thread.ident}"
-        #             ")"
-        #                 if config.DEBUG
-        #                 else
-        #             ""
-        #         )
     
 
 
 class PoolExecutor(Executor):
 
     def __init__(self, parent_pid = None):
-        super().__init__()
+        super(PoolExecutor, self).__init__()
 
         self.parent_pid = parent_pid
         self.futures    = []
 
-        if self.creator:
-            self.executor   = self.creator(os.cpu_count())
+
         self.results    = queue.Queue()
+        self.start()
 
     @staticmethod
     def complete_action(future: Future):
@@ -396,14 +381,14 @@ class PoolExecutor(Executor):
                 f"{future.parent.debug_info(future.parent.__class__.__name__)}. "
                 f"{result}"
             )
-             # print(f"Current process:{multiprocessing.current_process().pid}.")
-            # print(f"Results size: {future.parent.results.qsize()}.")
-            # print(result, flush = True)
-            # print(f"Future is running: {future.running()}.")
-            # print(f"Future is done: {future.done()}.")
-            # future.parent.shutdown(False)
         else:
             return
+
+    def start(self):
+        if self.creator and not self.started:
+            self.executor   = self.creator(os.cpu_count())
+            self.started = True
+        return self.started
 
     def shutdown(self, wait = True, * , cancel = False) -> bool:
         result = super(PoolExecutor, self).shutdown(wait, cancel=cancel)
@@ -445,7 +430,8 @@ class ThreadPoolExecutor(PoolExecutor):
     def join(self, timeout= None) -> bool:
         if threading.current_thread() in self.executor._threads:
             raise RuntimeError("can't join from child.")
-
+        if not self.started:
+            self.start()
         result = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
         return True
     
@@ -468,8 +454,9 @@ class ProcessPoolExecutor(PoolExecutor):
 
     def join(self, timeout = None) -> bool:
         if not self.in_parent:
-            raise RuntimeError("join alowed only from parent process aka creator.")
-        
+            raise RuntimeError("join alowed from parent process(creator) only.")
+        if not self.started:
+            self.start()
         restult = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
         return True
 
@@ -485,6 +472,9 @@ class ProcessPoolExecutor(PoolExecutor):
 class Worker(Executor):
     
     TRIES = 0
+
+    executor_creation   = True
+    executor_counter    = True
 
     def __init__(self):
         super(Worker, self).__init__()
@@ -511,7 +501,9 @@ class Worker(Executor):
             # logger_init()
             logger.debug(f"{Executor.debug_info(caller)} logging prepeared.")
 
-        logger.debug(f"{Executor.debug_info(caller)} runned.")
+        logger.debug(f"{Executor.debug_info(caller)} started.")
+        executor.started = True
+        
         while True:
             task = None
             logger.debug(
@@ -544,7 +536,7 @@ class Worker(Executor):
                                 executor.tasks.task_done()
                         else:
                             break
-                    except Exception as e:
+                    except queue.Empty as e:
                         task = None
                         if tries < Worker.TRIES:
                             tries += 1
@@ -555,6 +547,7 @@ class Worker(Executor):
                         break
             
             if task is not None:
+                # TODO: Move out.
                 if executor.create is not None and executor.executor_creation:
                     logger.debug(f"{Worker.debug_info(caller)} creation requested. ")
                     executor.create.set()
@@ -633,6 +626,9 @@ class Workers(Worker):
     in_threads      = InChildThreads()
     in_processes    = InChildProcesses()
 
+    executor_creation   = ExecutorCreationAllowed()
+    executor_counter    = ExecutorCounterInBounds()
+
     def __init__(self, max_workers = None, /, *args, **kwargs):
         super().__init__()
         self.workers     = []
@@ -647,7 +643,7 @@ class Workers(Worker):
         else:
             self.max_workers = min(self.max_cpus, max_workers)
 
-    def join(self, timeout= None) -> bool:
+    def join(self, timeout = None) -> bool:
         if self.in_threads or self.in_processes:
             raise RuntimeError("can't join from child.")
         if self.iworkers.value >= self.max_workers:
@@ -696,20 +692,28 @@ class Workers(Worker):
 """Main thread"""
 class MainThreadExecutor(Executor):
 
-    in_parent = InParentThread() # Always True
+    in_parent   = InParentThread() # Always True
+    in_executor = InThread()
 
     def __init__(self, parent_pid = threading.current_thread().ident):
         super().__init__()
         self.executor   = threading.current_thread()
         self.parent_pid = parent_pid
         self.results    = queue.Queue()
+        self.started    = True
 
     @classmethod
     def init(cls, /, *args, **kwargs) -> bool:
-        cls.in_executor = InThread()
         # cls.current     = threading.current_thread
         return True
 
+    def start(self):
+        logger.debug(
+            f"{self.debug_info(self.__class__.__name__)}. "
+            f"Executor started."
+        )
+        return self.started
+    
     def join(self, timeout= None) -> bool:
         if not self.in_main_thread and self.in_parent:# TODO
             raise RuntimeError("can't do self-joining.")
@@ -766,11 +770,14 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         self.iworkers   = Value(0)
          # Reset to None to creaet a new thread in 'submit' method
         self.executor = None
+        self.started = False
 
     def join(self, timeout= None) -> bool:
         if self.in_executor:
             raise RuntimeError("can't do self-joining.")
         if self.executor is not None:
+            if not self.started:
+                self.start()
             info = ""
             info += f"{self.debug_info(self.__class__.__name__)}. "
             info += f"Going to wait for executor:{self.executor}"
@@ -781,11 +788,25 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         return False
 
     def create_executor(self, /, *args, **kwargs):
-        return  self.creator(
-                    target  = self.worker,
-                    args    = (self,) + args,
-                    kwargs  = kwargs
-                )
+        self.executor   =  self.creator(
+                                target  = self.worker,
+                                args    = (self,) + args,
+                                kwargs  = kwargs
+                            )
+        if self.executor is not None:
+            logger.debug(
+                f"{self.debug_info(self.__class__.__name__)}. "
+                f"Executor:{self.executor} created."
+            )
+        return self.executor
+
+    def start(self):
+        if not self.started and self.executor is not None:
+            self.executor.start()
+            logger.debug(
+                f"{self.debug_info(self.__class__.__name__)}. "
+                f"Executor:{self.executor} going to start."
+            )
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None:
@@ -797,13 +818,8 @@ class ThreadExecutor(MainThreadExecutor, Worker):
                     f"{self.debug_info(self.__class__.__name__)}. "
                     f"{task} scheduled."
                 )
-                self.executor = self.create_executor(*args, **kwargs)
+                self.create_executor(*args, **kwargs)
                 self.iworkers.value += 1
-                self.executor.start()
-                logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
-                    f"Executor:{self.executor} started."
-                )
             # From created thread(self.executor) - 
             # execute task immediately
             elif self.in_executor:
@@ -857,7 +873,7 @@ class ProcessExecutor(ThreadExecutor):
     def __init__(
             self,
             max_workers = None,
-            parent_pid = multiprocessing.current_process().pid
+            parent_pid = multiprocessing.current_process().ident
         ):
         super(ProcessExecutor, self).__init__(parent_pid)
         self.max_workers= max_workers
@@ -873,7 +889,7 @@ class ProcessExecutor(ThreadExecutor):
             results,
             iworkers,
             max_workers,
-            parent_pid = multiprocessing.current_process().pid
+            parent_pid = multiprocessing.current_process().ident
         ):
         executor = ProcessExecutor(max_workers, parent_pid)
         executor.tasks      = tasks
@@ -895,18 +911,24 @@ class ProcessExecutor(ThreadExecutor):
                     else                        \
                 config
         
-        return  self.creator(
-                    target  = self.worker,
-                    args    = (
-                                conf,
-                                self.tasks,
-                                self.results,
-                                self.iworkers,
-                                1,
-                                DUMMY
-                              ) + args,
-                    kwargs  = kwargs
-                )
+        self.executor = self.creator(
+                            target  = self.worker,
+                            args    = (
+                                        conf,
+                                        self.tasks,
+                                        self.results,
+                                        self.iworkers,
+                                        1,
+                                        DUMMY
+                                    ) + args,
+                            kwargs  = kwargs
+                        )
+        if self.executor is not None:
+            logger.debug(
+                f"{self.debug_info(self.__class__.__name__)}. "
+                f"Executor:{self.executor} created."
+            )
+        return self.executor
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None and hasattr(task, "executor"):
@@ -927,7 +949,6 @@ class ThreadsExecutor(Workers):
     max_cpus    = 32
 
     in_parent           = InParentThread() # Always True
-    executor_counter    = ExecutorCounterInBounds()
     actives             = ActiveThreads()
 
     @classmethod
@@ -942,6 +963,9 @@ class ThreadsExecutor(Workers):
         self.tasks      = queue.Queue()
         self.results    = queue.Queue()
         # self.create     = threading.Event()
+
+    def start(self):
+        return self.started
 
     def join(self, timeout= None) -> bool:
         return super(ThreadsExecutor, self).join(timeout)
@@ -967,6 +991,7 @@ class ThreadsExecutor(Workers):
                 self.iworkers.value += 1
                 self.workers.append(worker)
                 worker.start()
+                self.started = True
                 logger.debug(
                     f"{self.debug_info(self.__class__.__name__)}. "
                     f"{worker} started."
@@ -1001,8 +1026,6 @@ class ProcessesExecutor(Workers):
     max_cpus    = 61
 
     in_parent           = InParentProcess()
-    executor_creation   = ExecutorCreationAllowed()
-    executor_counter    = ExecutorCounterInBounds()
     actives             = ActiveProcesses()
 
     @classmethod
@@ -1014,7 +1037,7 @@ class ProcessesExecutor(Workers):
     def __init__(
             self,
             max_workers = None,
-            parent_pid = multiprocessing.current_process().pid
+            parent_pid = multiprocessing.current_process().ident
         ):
         super(ProcessesExecutor, self).__init__(max_workers)
         self.parent_pid = parent_pid
@@ -1051,39 +1074,15 @@ class ProcessesExecutor(Workers):
     #         #         break
     #     return
 
+    def start(self) -> bool:
+        if not self.started:
+            def monitor(executor):
+                return executor.join()
+            thread = threading.Thread(target=monitor, args=(self,))
+            thread.start()
+            self.started = True
+        return self.started
 
-    def status(self):
-        logger.debug(
-            f"{self.debug_info(self.__class__.__name__)}. "
-            "<Status "
-                f"tasks={self.tasks.qsize()} "
-                f"processes={len(multiprocessing.active_children())}, "
-                f"threads={threading.active_count()}, "
-                f"workers={self.iworkers.value}"
-            ">."
-        )
-
-    @staticmethod
-    def debug_info(name = "") -> str:
-        process = multiprocessing.current_process()
-        process = Executor._repr_process(process)
-        return  f"<{name} process={process}>"\
-                    if config.DEBUG\
-                    else\
-                f"{name}"
-        # return  strdatetime()\
-        #     +   (
-        #             f" - Process"
-        #             "("
-        #                 f"name='{process.name}', "
-        #                 f"pid={process.pid}, "
-        #                 f"parent={process._parent_pid}"
-        #             ")"
-        #                 if config.DEBUG
-        #                 else
-        #             ""
-        #         )
-    
     # Override Worker.worker to create dummy-pickleable executor object
     # in new process's memory.
     @staticmethod
@@ -1094,7 +1093,7 @@ class ProcessesExecutor(Workers):
             create,
             iworkers,
             max_workers,
-            parent_pid = multiprocessing.current_process().pid
+            parent_pid = multiprocessing.current_process().ident
         ):
         executor = ProcessesExecutor(max_workers, parent_pid)
         executor.tasks      = tasks
@@ -1110,14 +1109,14 @@ class ProcessesExecutor(Workers):
     """
 
     """
-    def join(self, timeout= None) -> bool:
+    def join(self, timeout = None) -> bool:
         # If self.parent_pid is real process's pid,
         # checking that it id is equal to creator process.
         if not self.in_parent:
             raise   RuntimeError(\
                         f"join to object({id(self)}) of type {type(self).__name__}', "
                         f"created in process({self.parent_pid}), "
-                        f"from process {multiprocessing.current_process().pid} failed."
+                        f"from process {multiprocessing.current_process().ident} failed."
                         f"Joining allowed for creator process only."
                     )
         # Check if ProcessesExecutor object created in static method -
@@ -1236,40 +1235,31 @@ class ProcessesExecutor(Workers):
     # def __bool__(self) -> bool:
     #     return True
 
-# class ProcessesManager(multiprocessing.managers.SyncManager):
-#     pass
+    def status(self):
+        logger.debug(
+            f"{self.debug_info(self.__class__.__name__)}. "
+            "<Status "
+                f"tasks={self.tasks.qsize()} "
+                f"processes={len(multiprocessing.active_children())}, "
+                f"threads={threading.active_count()}, "
+                f"workers={self.iworkers.value}"
+            ">."
+        )
 
-# class ProcessesExecutorProxy(NamespaceProxy):
+    @staticmethod
+    def debug_info(name = "") -> str:
+        process = multiprocessing.current_process()
+        process = Executor._repr_process(process)
+        return  f"<{name} process={process}>"\
+                    if config.DEBUG\
+                    else\
+                f"{name}"
 
-#     _exposed_ = tuple([attribute for attribute in dir(ProcessesExecutor) if not attribute.startswith("_")] + ["__getattribute__", "__getattr__", "__setattr__", "__delattr__"])
+if __name__ == "__main__":
+    class EXECUTORS(registrator.REGISTRATOR): ...
 
-#     def __getattr__(self, name):
-#         result = super().__getattr__(name)#result = self._callmethod('__getattribute__', (name,))
-#         if isinstance(result, types.MethodType):
-#             def wrapper(*args, **kwargs):
-#                 return self._callmethod(name, args, kwargs)
-#             return wrapper
-#         return result
-#         # if key[0] == '__':
-#         #     return object.__getattribute__(self, key)
-#         # callmethod = object.__getattribute__(self, '_callmethod')
-#         # return callmethod('__getattribute__', (key,))
-#     # def __setattr__(self, key, value):
-#     #     if key[0] == '__':
-#     #         return object.__setattr__(self, key, value)
-#     #     callmethod = object.__getattribute__(self, '_callmethod')
-#     #     return callmethod('__setattr__', (key, value))
-#     # def __delattr__(self, key):
-#     #     if key[0] == '__':
-#     #         return object.__delattr__(self, key)
-#     #     callmethod = object.__getattribute__(self, '_callmethod')
-#     #     return callmethod('__delattr__', (key,))
-
-# class EXECUTORS(registry.REGISTRY): ...
-
-# EXECUTORS.register("Executor", __name__, globals(), Executor)
-# registry = EXECUTORS()
-# if config.DEBUG:
-#     logger.debug(f"Executors registered:{EXECUTORS()}.")
+    EXECUTORS.register("Executor", __name__, globals(), Executor)
+    registry = EXECUTORS()
+    logger.debug(f"Executors registered:{EXECUTORS()}.")
 
 # pass
