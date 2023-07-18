@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# import logging
+import logging
 import multiprocessing
 # import os
 import cProfile
@@ -14,6 +14,10 @@ from abc import ABC, abstractmethod
 from executors.iexecutor import IExecutor
 from executors.executors import Executor
 from executors.logger import logger
+
+if __name__ == "__main__":
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
 
 import registrator.registrator as registrator
 
