@@ -12,10 +12,9 @@ from executors.logger   import logger
 
 class PoolExecutor(Executor):
 
-    def __init__(self, parent_pid = None):
+    def __init__(self):
         super(PoolExecutor, self).__init__()
 
-        self.parent_pid = parent_pid
         self.futures    = []
 
 
