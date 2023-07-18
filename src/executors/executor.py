@@ -39,8 +39,8 @@ class Executor(iexecutor.IExecutor):
 
     def __init__(
             self,
-            parent_pid  = multiprocessing.current_process().ident,
-            parent_tid  = threading.current_thread().ident
+            parent_pid = multiprocessing.current_process().ident,
+            parent_tid = threading.current_thread().ident
         ):
         
         self.parent     : Executor|None         = None

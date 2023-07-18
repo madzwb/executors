@@ -32,7 +32,7 @@ class PoolExecutor(Executor):
         :
             future.parent.results.put_nowait(result) # type: ignore
             logger.info(
-                f"{future.parent.info(future.parent.__class__.__name__)}. " # type: ignore
+                f"{Logging.info(future.parent.__class__.__name__)}. " # type: ignore
                 f"{result}"
             )
         else:

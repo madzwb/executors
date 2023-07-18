@@ -5,6 +5,13 @@ from abc    import ABC, abstractmethod
 # from typing import Any
 
 from executors.executor import Executor
+from executors.executors import (
+    ThreadsExecutor,
+    ProcessesExecutor,
+    ThreadPoolExecutor,
+    ProcessPoolExecutor
+)
+from executors.workers import Workers
 
 # def is_queue(o: Any) -> bool:
 #     return      hasattr(o, "put")   \
@@ -56,7 +63,7 @@ class InParentProcess(InParent):
 
 class InParentThread(InParent):
     def pid(self, o) -> bool:
-        return True
+        return threading.current_thread().ident == o.parent_tid
 
 
 
@@ -108,47 +115,67 @@ class InChilds(ABC):
         return self.is_in(o)
 
 class InChildThreads(InChilds):
-    def is_in(self, o) -> bool:
+    def is_in(self, o, ot) -> bool:
+        if not issubclass(ot, ThreadsExecutor):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ThreadsExecutor."
+                    )
         return threading.current_thread() in o.workers
 
 class InChildProcesses(InChilds):
-    def is_in(self, o) -> bool:
+    def is_in(self, o, ot) -> bool:
+        if not issubclass(ot, ProcessesExecutor):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ProcessesExecutor."
+                    )
         return multiprocessing.current_process() in o.workers
 
 class InThreadPool(InChilds):
-    def is_in(self, o) -> bool:
+    def is_in(self, o, ot) -> bool:
+        if not issubclass(ot, ThreadPoolExecutor):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ThreadPoolExecutor."
+                    )
         return threading.current_thread() in o.executor._threads
 
 class InProcessPool(InChilds):
-    def is_in(self, o) -> bool:
+    def is_in(self, o, ot) -> bool:
+        if not issubclass(ot, ProcessPoolExecutor):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ProcessPoolExecutor."
+                    )
         return multiprocessing.current_process() in o.executor._processes
 
-# class ExecutorCounterInBounds():
+class CounterInBounds():
 
-#     def __get__(self, o, ot) -> bool:
-#         if not issubclass(ot, Workers):
-#             raise   TypeError(
-#                         f"wrong object({o}) type({type(o)}), "
-#                         "must be subclass of Workers."
-#                     )
-#         return  o.iworkers.value < o.max_workers or  o.iworkers.value == 0
+    def __get__(self, o, ot) -> bool:
+        if not issubclass(ot, Workers):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of Workers."
+                    )
+        return  o.iworkers.value < o.max_workers or  o.iworkers.value == 0
 
 
 
-# class ExecutorCreationAllowed():
+class ExecutorCreationAllowed():
 
-#     def __get__(self, o, ot) -> bool:
-#         if not issubclass(ot, Workers):
-#             raise   TypeError(
-#                         f"wrong object({o}) type({type(o)}), "
-#                         "must be subclass of Workers."
-#                     )
-#         return      o.iworkers.value < o.max_workers\
-#                 and (
-#                         not o.tasks.empty()
-#                         or  o.tasks.qsize()
-#                     )\
-#                 # and o.iworkers.value <= len(multiprocessing.active_children())
+    def __get__(self, o, ot) -> bool:
+        if not issubclass(ot, Workers):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of Workers."
+                    )
+        return      o.iworkers.value < o.max_workers\
+                and (
+                        not o.tasks.empty()
+                        or  o.tasks.qsize()
+                    )\
+                # and o.iworkers.value <= len(multiprocessing.active_children())
 
 
 

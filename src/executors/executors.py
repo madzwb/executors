@@ -16,6 +16,7 @@ from typing import Callable
 
 
 import executors.descriptors as descriptors
+# from executors.descriptors import *
 
 import executors.logger as Logging
 from executors.logger   import logger
@@ -32,8 +33,8 @@ from registrator import registrator
 
 class ThreadPoolExecutor(PoolExecutor):
 
-    in_parent = descriptors.InParentThread()
-    in_childs = descriptors.InThreadPool()
+    in_parent   = descriptors.InParentThread()
+    in_executor = descriptors.InThreadPool()
     # in_parent_thread = InParentThread()
     # in_parent_process = InParentProcess()
 
@@ -46,7 +47,9 @@ class ThreadPoolExecutor(PoolExecutor):
         super(ThreadPoolExecutor, self).__init__(parent_pid)
 
     def join(self, timeout= None) -> bool:
-        if self.in_childs:
+        if not self.in_parent:
+            raise RuntimeError("can't join from another process.")
+        if self.in_executor:
             raise RuntimeError("can't join from child.")
         if not self.started:
             self.start()
@@ -90,24 +93,17 @@ class ProcessPoolExecutor(PoolExecutor):
 """Main thread"""
 class MainThreadExecutor(Executor):
 
-    # in_main_thread  = InMainThread()
-    in_parent   = descriptors.InParentThread() # Always True
-    # in_executor = InThread()
+    in_parent   = descriptors.InParentProcess() # Check if in process-creator
+    in_executor = descriptors.InParentThread()  # Check if in thread-creator
 
-    def __init__(
-            self,
-            parent_pid = multiprocessing.current_process().ident,
-            parent_tid = threading.current_thread().ident,
-        ):
-        super().__init__()
+    def __init__(self):
+        super(MainThreadExecutor, self).__init__()
         self.executor   = threading.current_thread()
-        self.parent_pid = parent_pid
         self.results    = queue.Queue()
         self.started    = True
 
     @classmethod
     def init(cls, /, *args, **kwargs) -> bool:
-        # cls.current     = threading.current_thread
         return True
 
     def start(self):
@@ -351,8 +347,8 @@ class ThreadsExecutor(Workers):
 
     max_cpus    = 32
 
-    # in_parent   = descriptors.InParentThread() # Always True
-    # in_childs   = descriptors.InChildThreads()
+    in_parent   = descriptors.InParentProcess()
+    in_executor = descriptors.InChildThreads()
     # actives     = ActiveThreads()
 
     @classmethod
@@ -361,9 +357,8 @@ class ThreadsExecutor(Workers):
         # cls.current = threading.current_thread
         return True
 
-    def __init__(self, max_workers = None, parent_pid = threading.current_thread().ident, /, *args, **kwargs):
-        super().__init__(max_workers, *args, **kwargs)
-        self.parent_pid = parent_pid
+    def __init__(self, max_workers = None):
+        super(ThreadsExecutor, self).__init__(max_workers)
         self.tasks      = queue.Queue()
         self.results    = queue.Queue()
         # self.create     = threading.Event()
@@ -372,6 +367,8 @@ class ThreadsExecutor(Workers):
         return self.started
 
     def join(self, timeout= None) -> bool:
+        if not self.in_parent:
+            raise RuntimeError("can't join from another process.")
         return super(ThreadsExecutor, self).join(timeout)
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
@@ -379,12 +376,12 @@ class ThreadsExecutor(Workers):
             if task is not None and hasattr(task, "executor"):
                 task.executor = self
             if      self.in_parent\
-                and self.executor_counter\
+                and self.in_bounds\
                 and (
                             not self.tasks.empty()
                         or  not self.tasks.qsize()
                         # or      self.actives >= self.iworkers.value + 1 # Add main
-                        or      self.iworkers.value == 0
+                        # or      self.iworkers.value == 0
                     )\
             :
                 worker = self.creator(
@@ -429,9 +426,9 @@ class ProcessesExecutor(Workers):
 
     max_cpus    = 61
 
-    # is_in_parent           = descriptors.InParentProcess()
-    # actives             = descriptors.ActiveProcesses()
-    in_childs   = descriptors.InChildProcesses()
+    in_parent   = descriptors.InParentProcess()
+    in_executor = descriptors.InChildProcesses()
+    actives     = descriptors.ActiveProcesses()
 
     @classmethod
     def init(cls, /, *args, **kwargs) -> bool:
@@ -444,7 +441,7 @@ class ProcessesExecutor(Workers):
             max_workers = None,
             parent_pid = multiprocessing.current_process().ident
         ):
-        super(ProcessesExecutor, self).__init__(max_workers)
+        super(ProcessesExecutor, self).__init__(max_workers, parent_pid)
         self.parent_pid = parent_pid
         # manager     = multiprocessing.Manager
         self.tasks      = multiprocessing.JoinableQueue()
@@ -507,7 +504,7 @@ class ProcessesExecutor(Workers):
             )
             return False
         
-        while self.executor_counter:
+        while self.in_bounds:
             logger.debug(
                 f"{Logging.info(self.__class__.__name__)}. "
                 "Going to wait for creation request."
@@ -517,20 +514,20 @@ class ProcessesExecutor(Workers):
                 and self.iworkers.value > 0 \
                 and (
                             self.tasks.empty()
-                        or  not self.tasks.qsize()# <= 1
-                        or  self.actives < self.iworkers.value # Process in starting # type: ignore
+                        or  not self.tasks.qsize()
+                        or  self.actives < self.iworkers.value # type: ignore
                     )\
                 :
                 # Event raised, but tasks is empty.
                 # Skip child process creation request.
                 self.create.clear()
-                if self.tasks.empty() or self.tasks.qsize() <= 1:
+                if self.tasks.empty() or not self.tasks.qsize():
                     logger.debug(
                         f"{Logging.info(self.__class__.__name__)}. "
                         f"Skip creation request. "
                         f"Tasks' count={ self.tasks.qsize()}."
                     )
-                if len(multiprocessing.active_children()) < self.iworkers.value: # type: ignore
+                if self.actives < self.iworkers.value: # type: ignore
                     logger.debug(
                         f"{Logging.info(self.__class__.__name__)}. "
                         "Skip creation request. "
@@ -581,16 +578,12 @@ class ProcessesExecutor(Workers):
             task.executor = None
         
         if task is not None:
-            create = self.executor_creation
-            # if create:
-            #     self.tasks.put(task)
-            # else:
             self.tasks.put_nowait(task)
             logger.info(
                 f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} scheduled. "
             )
-            if create is not None:
+            if self.in_bounds:
                 self.create.set()
                 logger.debug(
                     f"{Logging.info(self.__class__.__name__)}. "

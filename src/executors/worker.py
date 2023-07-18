@@ -2,6 +2,7 @@ import multiprocessing
 import multiprocessing.queues
 import sys
 import time
+import threading
 
 from executors.config import CONFIG
 from executors.executor import Executor
@@ -14,11 +15,15 @@ class Worker(Executor):
     
     TRIES = 0
 
-    executor_creation   = True
-    executor_counter    = True
+    # executor_creation   = True
+    # executor_counter    = True
 
-    def __init__(self):
-        super(Worker, self).__init__()
+    def __init__(
+            self,
+            parent_pid = multiprocessing.current_process().ident,
+            parent_tid = threading.current_thread().ident
+        ):
+        super(Worker, self).__init__(parent_pid, parent_tid)
 
     @staticmethod
     def worker(executor: Executor, conf = None, /, *args, **kwargs):

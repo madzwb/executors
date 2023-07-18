@@ -1,4 +1,6 @@
 import os
+import multiprocessing
+import threading
 
 import executors.descriptors as descriptors
 from executors.value import Value
@@ -18,10 +20,15 @@ class Workers(Worker):
     # in_child_processes    = descriptors.InChildProcesses()
 
     # executor_creation   = ExecutorCreationAllowed()
-    # executor_counter    = ExecutorCounterInBounds()
+    in_bounds = descriptors.CounterInBounds()
 
-    def __init__(self, max_workers = None, /, *args, **kwargs):
-        super(Workers, self).__init__()
+    def __init__(
+            self,
+            max_workers= None,
+            parent_pid = multiprocessing.current_process().ident,
+            parent_tid = threading.current_thread().ident
+        ):
+        super(Workers, self).__init__(parent_pid, parent_tid)
         self.workers     = []
         self.iworkers    = Value(0)
         self.max_workers = 1
@@ -35,7 +42,7 @@ class Workers(Worker):
             self.max_workers = min(self.max_cpus, max_workers)
 
     def join(self, timeout = None) -> bool:
-        if self.in_parent:#_threads or self.in_child_processes:
+        if self.in_executor:
             raise RuntimeError("can't join from child.")
         if self.iworkers.value >= self.max_workers:
             # All workers created. Join childs.
