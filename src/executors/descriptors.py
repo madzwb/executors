@@ -4,14 +4,14 @@ import threading
 from abc    import ABC, abstractmethod
 # from typing import Any
 
-from executors.executor import Executor
-from executors.executors import (
-    ThreadsExecutor,
-    ProcessesExecutor,
-    ThreadPoolExecutor,
-    ProcessPoolExecutor
-)
-from executors.workers import Workers
+from executors.executor     import Executor
+# from executors.threadpool   import ThreadPoolExecutor
+# from executors.threads      import ThreadsExecutor
+# from executors.processes    import ProcessesExecutor
+# from executors.processpool  import ProcessPoolExecutor
+# from executors.workers      import Workers
+
+
 
 # def is_queue(o: Any) -> bool:
 #     return      hasattr(o, "put")   \
@@ -30,6 +30,8 @@ from executors.workers import Workers
 #         return  not multiprocessing.parent_process()\
 #                 or  multiprocessing.current_process().name == "MainProcess"\
 
+
+
 # class InMainThread():
 
 #     def __get__(self, o, ot) -> bool:
@@ -39,7 +41,7 @@ from executors.workers import Workers
 
 class InParent(ABC):
     @abstractmethod
-    def pid(self, o) -> bool: ...
+    def pid(self, o, ot) -> bool: ...
 
     #   parent_pid == 0 - has special behavior!!!
     def __get__(self, o, ot) -> bool:
@@ -51,18 +53,18 @@ class InParent(ABC):
         return      hasattr(o,"parent_pid")     \
                 and o.parent_pid is not None    \
                 and o.parent_pid > 0            \
-                and self.pid(o)
+                and self.pid(o, ot)
 
 
 
 class InParentProcess(InParent):
-    def pid(self, o) -> bool:
+    def pid(self, o, ot) -> bool:
         return multiprocessing.current_process().ident == o.parent_pid
 
 
 
 class InParentThread(InParent):
-    def pid(self, o) -> bool:
+    def pid(self, o, ot) -> bool:
         return threading.current_thread().ident == o.parent_tid
 
 
@@ -107,75 +109,14 @@ class InParentThread(InParent):
 #                 or  multiprocessing.current_process().name == "MainProcess")\
 #                 and threading.main_thread() == threading.current_thread()
 
+
+
 class InChilds(ABC):
     @abstractmethod
-    def is_in(self, o) -> bool:    ...
+    def is_in(self, o, ot) -> bool:    ...
 
     def __get__(self, o, ot) -> bool:
-        return self.is_in(o)
-
-class InChildThreads(InChilds):
-    def is_in(self, o, ot) -> bool:
-        if not issubclass(ot, ThreadsExecutor):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of ThreadsExecutor."
-                    )
-        return threading.current_thread() in o.workers
-
-class InChildProcesses(InChilds):
-    def is_in(self, o, ot) -> bool:
-        if not issubclass(ot, ProcessesExecutor):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of ProcessesExecutor."
-                    )
-        return multiprocessing.current_process() in o.workers
-
-class InThreadPool(InChilds):
-    def is_in(self, o, ot) -> bool:
-        if not issubclass(ot, ThreadPoolExecutor):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of ThreadPoolExecutor."
-                    )
-        return threading.current_thread() in o.executor._threads
-
-class InProcessPool(InChilds):
-    def is_in(self, o, ot) -> bool:
-        if not issubclass(ot, ProcessPoolExecutor):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of ProcessPoolExecutor."
-                    )
-        return multiprocessing.current_process() in o.executor._processes
-
-class CounterInBounds():
-
-    def __get__(self, o, ot) -> bool:
-        if not issubclass(ot, Workers):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of Workers."
-                    )
-        return  o.iworkers.value < o.max_workers or  o.iworkers.value == 0
-
-
-
-class ExecutorCreationAllowed():
-
-    def __get__(self, o, ot) -> bool:
-        if not issubclass(ot, Workers):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of Workers."
-                    )
-        return      o.iworkers.value < o.max_workers\
-                and (
-                        not o.tasks.empty()
-                        or  o.tasks.qsize()
-                    )\
-                # and o.iworkers.value <= len(multiprocessing.active_children())
+        return self.is_in(o, ot)
 
 
 
@@ -187,12 +128,16 @@ class Actives(ABC):
     def __get__(self, o ,ot) -> int:
         return self.len()
 
+
+
 class ActiveThreads(Actives):
 
     @classmethod
     def len(cls) -> int:
         return threading.active_count()
     # len(threading.enumerate())
+
+
 
 class ActiveProcesses(Actives):
 
