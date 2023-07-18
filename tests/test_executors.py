@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
+# import logging
 import multiprocessing
-import os
+# import os
 import cProfile
 import sys
 import time
@@ -11,28 +11,10 @@ import unittest
 
 from abc import ABC, abstractmethod
 
-# current = os.path.dirname(os.path.realpath(__file__))
-# parent = os.path.dirname(current)
-# sys.path.append(parent)
+from executors.iexecutor import IExecutor
+from executors.executors import Executor
+from executors.logger import logger
 
-# import config
-# config.SCRIPT = __file__
-# config.TEST = False
-# config.DEBUG = False
-# config.LOG_TO_TERMINAL = False
-
-# # Truncate log file.
-# if __name__ == "__main__" and config.LOG_TO_FILE and config.TEST:
-#     path = os.path.dirname(config.SCRIPT)
-#     filename =  os.path.splitext(os.path.basename(config.SCRIPT))[0] + ".log"
-#     full = (path + "/" + filename)
-#     with open(full,"w") as file:
-#         pass
-
-# sys.path.append(os.path.dirname(__file__) + "/../")
-# sys.path.append(os.path.dirname(__file__) + "/../src/")
-# from src.executors.executors import IExecutor, Executor, logger
-from executors.executors import IExecutor, Executor, logger
 import registrator.registrator as registrator
 
 class EXECUTERS(registrator.REGISTRATOR):
@@ -41,23 +23,9 @@ class EXECUTERS(registrator.REGISTRATOR):
 EXECUTERS.register("Executor", "executors.executors", vars(sys.modules["executors.executors"]), IExecutor)
 registry = EXECUTERS()
 
-# from logger import logger, formatter, init as logger_init
-# logger_init()
-
-# formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] - %(message)s")
-# formatter_result = logging.Formatter("%(message)s")
-# formatter.default_msec_format = '%s.%03d'
-
-# logger = logging.getLogger()
-# stream_handler  = logging.StreamHandler()
-# stream_handler.setFormatter(formatter)
-# logger.addHandler(stream_handler)
-
-# logger.setLevel(logging.DEBUG)
-
-PROFILING = False
-TIMEOUT = 0.3
-TASKS   = 33
+PROFILING   = False
+TIMEOUT     = 0.3
+TASKS       = 33
 
 
 class IAction(ABC):
