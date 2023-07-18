@@ -2,12 +2,43 @@ import os
 import multiprocessing
 import threading
 
-import executors.descriptors as descriptors
-from executors.value import Value
-from executors.worker import Worker
-
 import executors.logger as Logging
-from executors.logger import logger
+
+from executors  import descriptors
+
+from executors.value    import Value
+from executors.worker   import Worker
+from executors.logger   import logger
+
+
+
+class CounterInBounds():
+
+    def __get__(self, o, ot) -> bool:
+        if not issubclass(ot, Workers):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of Workers."
+                    )
+        return  o.iworkers.value < o.max_workers or  o.iworkers.value == 0
+
+
+
+class ExecutorCreationAllowed():
+
+    def __get__(self, o, ot) -> bool:
+        if not issubclass(ot, Workers):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of Workers."
+                    )
+        return      o.iworkers.value < o.max_workers\
+                and (
+                        not o.tasks.empty()
+                        or  o.tasks.qsize()
+                    )\
+                # and o.iworkers.value <= len(multiprocessing.active_children())
+
 
 
 """Workers"""
@@ -20,7 +51,7 @@ class Workers(Worker):
     # in_child_processes    = descriptors.InChildProcesses()
 
     # executor_creation   = ExecutorCreationAllowed()
-    in_bounds = descriptors.CounterInBounds()
+    in_bounds = CounterInBounds()
 
     def __init__(
             self,
