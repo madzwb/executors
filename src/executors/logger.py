@@ -3,12 +3,11 @@ import multiprocessing
 import os
 import threading
 
-from executors.config import config
+from config import config
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 logger.addHandler(logging.NullHandler())
 
-@staticmethod
 def _repr_process(process = multiprocessing.current_process()) -> str:
     return "<Process "\
                 f"name='{process.name}' "\
@@ -16,14 +15,12 @@ def _repr_process(process = multiprocessing.current_process()) -> str:
                 f"parent={process._parent_pid}"\
             ">"
 
-@staticmethod
 def _repr_thread(thread  = threading.current_thread()) -> str:
     return "<Thread "\
                 f"name='{thread.name}' "\
                 f"pid={thread.ident}"\
             ">"
 
-@staticmethod
 def info(name = "") -> str:
     process = multiprocessing   .current_process()
     thread  = threading         .current_thread()
