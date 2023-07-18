@@ -4,11 +4,11 @@ import sys
 import time
 import threading
 
-from executors.config import CONFIG
-from executors.executor import Executor
-
 import executors.logger as Logging
-from executors.logger import logger
+
+from executors.config   import CONFIG
+from executors.executor import Executor
+from executors.logger   import logger
 
 
 class Worker(Executor):
