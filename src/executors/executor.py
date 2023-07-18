@@ -4,11 +4,7 @@ import multiprocessing
 # import sys
 import threading
 
-import executors.iexecutor  as iexecutor
 from executors.config import config
-
-DUMMY = 0
-
 from executors.logger import logger
 
 if __name__ == "__main__":
@@ -16,7 +12,10 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
 import executors.logger as Logging
+import executors.iexecutor  as iexecutor
 
+
+DUMMY = 0
 
 class Executor(iexecutor.IExecutor):
 

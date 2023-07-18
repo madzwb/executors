@@ -1,6 +1,6 @@
 import sys
 
-
+DUMMY = 0
 
 CONFIG = "config"
 if  \
