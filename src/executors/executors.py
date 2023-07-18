@@ -15,12 +15,13 @@ import threading
 from typing import Callable
 
 
-import  executors.descriptors as descriptors
+import executors.descriptors as descriptors
 
-import executors.config     as config
+import executors.logger as Logging
+from executors.logger   import logger
 
-from executors.executor     import Executor
-from executors.logger       import logger
+from executors.config       import config, CONFIG
+from executors.executor     import Executor, DUMMY
 from executors.pool         import PoolExecutor
 from executors.value        import Value
 from executors.worker       import Worker
@@ -111,7 +112,7 @@ class MainThreadExecutor(Executor):
 
     def start(self):
         logger.debug(
-            f"{self.debug_info(self.__class__.__name__)}. "
+            f"{Logging.info(self.__class__.__name__)}. "
             f"Executor started."
         )
         return self.started
@@ -126,12 +127,12 @@ class MainThreadExecutor(Executor):
             try:
                 task.executor = self
                 logger.info(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{task} processing."
                 )
                 result = task(*args, **kwargs)
                 logger.info(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{task} done."
                 )
                 if self.results is not None and self.results != result:
@@ -143,7 +144,7 @@ class MainThreadExecutor(Executor):
             return True
         else:
             logger.warning(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} not scheduled."
             )
             return False
@@ -181,7 +182,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             if not self.started:
                 self.start()
             info = ""
-            info += f"{self.debug_info(self.__class__.__name__)}. "
+            info += f"{Logging.info(self.__class__.__name__)}. "
             info += f"Going to wait for executor:{self.executor}"
             info += f" for {timeout}sec" if timeout else "."
             logger.debug(info)
@@ -197,7 +198,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
                             )
         if self.executor is not None:
             logger.debug(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"Executor:{self.executor} created."
             )
         return self.executor
@@ -206,7 +207,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         if not self.started and self.executor is not None:
             self.executor.start()
             logger.debug(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"Executor:{self.executor} going to start."
             )
 
@@ -217,7 +218,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
                 # task.executor = self
                 self.tasks.put_nowait(task)
                 logger.info(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{task} scheduled."
                 )
                 self.create_executor(*args, **kwargs)
@@ -226,7 +227,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             # execute task immediately
             elif self.in_executor:
                 logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"Immediately call task:{task}."
                 )
                 super(ThreadExecutor, self).submit(task, *args, **kwargs)
@@ -234,7 +235,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             else:
                 self.tasks.put_nowait(task)
                 logger.info(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{task} scheduled."
                 )
             return True
@@ -242,12 +243,12 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} - sentinel scheduled."
             )
         else:
             logger.warning(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} not scheduled."
             )
             return False
@@ -299,7 +300,7 @@ class ProcessExecutor(ThreadExecutor):
         # executor.create     = create
         executor.iworkers   = iworkers
         logger.debug(
-            f"{ProcessesExecutor.debug_info(executor.__class__.__name__)}. "
+            f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
         Worker.worker(executor, conf)
@@ -327,7 +328,7 @@ class ProcessExecutor(ThreadExecutor):
                         )
         if self.executor is not None:
             logger.debug(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"Executor:{self.executor} created."
             )
         return self.executor
@@ -396,12 +397,12 @@ class ThreadsExecutor(Workers):
                 worker.start()
                 self.started = True
                 logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{worker} started."
                 )
             self.tasks.put_nowait(task)
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} scheduled."
             )
             return True
@@ -409,12 +410,12 @@ class ThreadsExecutor(Workers):
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} - sentinel scheduled."
             )
         else:
             logger.warning(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} not scheduled."
             )
             return False
@@ -479,7 +480,7 @@ class ProcessesExecutor(Workers):
         executor.create     = create
         executor.iworkers   = iworkers
         logger.debug(
-            f"{ProcessesExecutor.debug_info(executor.__class__.__name__)}. "
+            f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
         Workers.worker(executor, conf)#, tasks, results, create)
@@ -501,14 +502,14 @@ class ProcessesExecutor(Workers):
         # 'worker' as helper - parameters holder.
         elif self.parent_pid is not None and self.parent_pid == 0:
             logger.error(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 "Join to dummy."
             )
             return False
         
         while self.executor_counter:
             logger.debug(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 "Going to wait for creation request."
             )
             while   self.create.wait()      \
@@ -525,18 +526,18 @@ class ProcessesExecutor(Workers):
                 self.create.clear()
                 if self.tasks.empty() or self.tasks.qsize() <= 1:
                     logger.debug(
-                        f"{self.debug_info(self.__class__.__name__)}. "
+                        f"{Logging.info(self.__class__.__name__)}. "
                         f"Skip creation request. "
                         f"Tasks' count={ self.tasks.qsize()}."
                     )
                 if len(multiprocessing.active_children()) < self.iworkers.value: # type: ignore
                     logger.debug(
-                        f"{self.debug_info(self.__class__.__name__)}. "
+                        f"{Logging.info(self.__class__.__name__)}. "
                         "Skip creation request. "
                         "Process creation is requested already and in progress."
                     )
                 logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     "Going to wait for creation request."
                 )
             else:
@@ -565,7 +566,7 @@ class ProcessesExecutor(Workers):
                 self.workers.append(worker)
                 worker.start()
                 logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"{worker} started."
                 )
                 if super().join(timeout):
@@ -586,25 +587,25 @@ class ProcessesExecutor(Workers):
             # else:
             self.tasks.put_nowait(task)
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} scheduled. "
             )
             if create is not None:
                 self.create.set()
                 logger.debug(
-                    f"{self.debug_info(self.__class__.__name__)}. "
+                    f"{Logging.info(self.__class__.__name__)}. "
                     f"Process creation requested."
                 )
         elif self.iworkers.value or not self.tasks.empty() or self.tasks.qsize(): # type: ignore
             # Put sentinel into queue
             self.tasks.put_nowait(task)
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} - sentinel scheduled."
             )
         else:
             logger.warning(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} not scheduled."
             )
             return False
@@ -615,7 +616,7 @@ class ProcessesExecutor(Workers):
 
     def status(self):
         logger.debug(
-            f"{self.debug_info(self.__class__.__name__)}. "
+            f"{Logging.info(self.__class__.__name__)}. "
             "<Status "
                 f"tasks={self.tasks.qsize()} "
                 f"processes={len(multiprocessing.active_children())}, "
@@ -624,14 +625,14 @@ class ProcessesExecutor(Workers):
             ">."
         )
 
-    @staticmethod
-    def debug_info(name = "") -> str:
-        process = multiprocessing.current_process()
-        process = Executor._repr_process(process)
-        return  f"<{name} process={process}>"\
-                    if config.DEBUG\
-                    else\
-                f"{name}"
+    # @staticmethod
+    # def info(name = "") -> str:
+    #     process = multiprocessing.current_process()
+    #     process = Executor._repr_process(process)
+    #     return  f"<{name} process={process}>"\
+    #                 if config.DEBUG\
+    #                 else\
+    #             f"{name}"
 
 if __name__ == "__main__":
     class EXECUTORS(registrator.REGISTRATOR): ...

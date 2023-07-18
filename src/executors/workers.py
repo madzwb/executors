@@ -1,10 +1,11 @@
 import os
 
 import executors.descriptors as descriptors
-from executors.logger import logger
 from executors.value import Value
 from executors.worker import Worker
 
+import executors.logger as Logging
+from executors.logger import logger
 
 
 """Workers"""
@@ -20,7 +21,7 @@ class Workers(Worker):
     # executor_counter    = ExecutorCounterInBounds()
 
     def __init__(self, max_workers = None, /, *args, **kwargs):
-        super().__init__()
+        super(Workers, self).__init__()
         self.workers     = []
         self.iworkers    = Value(0)
         self.max_workers = 1
@@ -44,7 +45,7 @@ class Workers(Worker):
                 remove = []
                 for worker in self.workers:
                     info = ""
-                    info += f"{self.debug_info(self.__class__.__name__)}. "
+                    info += f"{Logging.info(self.__class__.__name__)}. "
                     info += f"Going to wait for {worker}" 
                     info += f" for {timeout}sec" if timeout else "."
                     logger.debug(info)
@@ -54,7 +55,7 @@ class Workers(Worker):
                         remove.append(worker)
                     else:
                         logger.debug(
-                            f"{self.debug_info(self.__class__.__name__)}. "
+                            f"{Logging.info(self.__class__.__name__)}. "
                             f"{worker} not complete in {timeout}sec."
                         )
                 # Remove finished workers
@@ -62,7 +63,7 @@ class Workers(Worker):
                     self.workers.remove(worker)
                 if timeout is not None and self.workers:
                     logger.debug(
-                        f"{self.debug_info(self.__class__.__name__)}. "
+                        f"{Logging.info(self.__class__.__name__)}. "
                         f"Not all workers complete with "
                         f"{timeout * len(self.workers)}sec. "
                         f"Trying again {try_count}."
@@ -71,7 +72,7 @@ class Workers(Worker):
             else:
                 if timeout is not None and try_count >= 3:
                     logger.debug(
-                        f"{self.debug_info(self.__class__.__name__)}. "
+                        f"{Logging.info(self.__class__.__name__)}. "
                         f"Not all workers complete with "
                         f"{timeout*len(self.workers)}sec. "
                         f"Try count reached {try_count}. Exiting."

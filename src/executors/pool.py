@@ -1,11 +1,13 @@
+import os
 import queue
 
 from concurrent.futures import Future
 from typing import  Callable
 
 from executors.executor import Executor
-from executors.logger   import logger
 
+import executors.logger as Logging
+from executors.logger   import logger
 
 
 class PoolExecutor(Executor):
@@ -25,12 +27,12 @@ class PoolExecutor(Executor):
         result = future.result()
         if      result                          \
             and hasattr(future, "parent")       \
-            and future.parent                   \
+            and future.parent is not None       \
             and future.parent.results != result \
         :
             future.parent.results.put_nowait(result) # type: ignore
             logger.info(
-                f"{future.parent.debug_info(future.parent.__class__.__name__)}. " # type: ignore
+                f"{future.parent.info(future.parent.__class__.__name__)}. " # type: ignore
                 f"{result}"
             )
         else:
@@ -45,18 +47,16 @@ class PoolExecutor(Executor):
     def shutdown(self, wait = True, * , cancel = False) -> bool:
         result = super(PoolExecutor, self).shutdown(wait, cancel=cancel)
         if self.executor is not None:
-            # print(f"Futures size: {len(cls.futures)}.")
-            # count = len(cls.futures)
             self.executor.shutdown(wait, cancel_futures=cancel)
             result = True
         else:
-            logger.error(f"{self.debug_info()}. Shutdown error.")
+            logger.error(f"{Logging.info()}. Shutdown error.")
         return result
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if self.executor is not None and task is not None:
             logger.info(
-                f"{self.debug_info(self.__class__.__name__)}. "
+                f"{Logging.info(self.__class__.__name__)}. "
                 f"{task} scheduled. "
             )
             future = self.executor.submit(task, *args, **kwargs)

@@ -9,11 +9,13 @@ from executors.config import config
 
 DUMMY = 0
 
+from executors.logger import logger
+
 if __name__ == "__main__":
-    from logger import logger
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
 
+import executors.logger as Logging
 
 
 class Executor(iexecutor.IExecutor):
@@ -77,14 +79,14 @@ class Executor(iexecutor.IExecutor):
                     remove.append(alias)
                 else:
                     logger.error(
-                        f"{Executor.debug_info(self.__class__.__name__)}. "
+                        f"{Logging.info(self.__class__.__name__)}. "
                         f"'{alias}' shutdown error."
                     )
                 self.process_results(child.results)
             for alias in remove:
                 self.childs.pop(alias)
             logger.debug(
-                f"{Executor.debug_info(self.__class__.__name__)} "
+                f"{Logging.info(self.__class__.__name__)} "
                 "shutted down."
             )
         
@@ -124,33 +126,7 @@ class Executor(iexecutor.IExecutor):
     def is_dummy(self) -> bool:
         return self.parent_pid == DUMMY
 
-    @staticmethod
-    def _repr_process(process = multiprocessing.current_process()) -> str:
-        return "<Process "\
-                    f"name='{process.name}' "\
-                    f"pid={process.ident} "\
-                    f"parent={process._parent_pid}"\
-                ">"
-    
-    @staticmethod
-    def _repr_thread(thread  = threading.current_thread()) -> str:
-        return "<Thread "\
-                    f"name='{thread.name}' "\
-                    f"pid={thread.ident}"\
-                ">"
-
-    def __repr__(self) -> str:
-        process = self._repr_process()
-        thread  = self._repr_thread()
-        return  f"<{self.__class__.__name__} process={process} thread={thread}>"
-    
-    @staticmethod
-    def debug_info(name = "") -> str:
-        process = multiprocessing   .current_process()
-        thread  = threading         .current_thread()
-        process = Executor          ._repr_process(process)
-        thread  = Executor          ._repr_thread(thread)
-        return f"<{name} process={process} thread={thread}>"\
-                    if config.DEBUG\
-                    else\
-                f"{name}"
+    # def __repr__(self) -> str:
+    #     process = self._repr_process()
+    #     thread  = self._repr_thread()
+    #     return  f"<{self.__class__.__name__} process={process} thread={thread}>"
