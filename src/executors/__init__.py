@@ -18,7 +18,7 @@
 # import executors.descriptors as descriptors
 # from executors.descriptors import *
 
-# import executors.logger as Logging
+import executors.logger as Logging
 from executors.logger   import logger
 
 # from executors.config       import config, CONFIG
