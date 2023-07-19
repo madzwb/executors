@@ -20,7 +20,8 @@ class InProcessPool(InChilds):
 
 class ProcessPoolExecutor(PoolExecutor):
 
-    in_parent = descriptors.InParentProcess()
+    in_parent   = descriptors.InParentProcess()
+    in_executor = InProcessPool()
 
     @classmethod
     def init(cls, /, *args, **kwargs):

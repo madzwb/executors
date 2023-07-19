@@ -16,7 +16,7 @@ class InThreadPool(descriptors.InChilds):
 
 class ThreadPoolExecutor(PoolExecutor):
 
-    in_parent   = descriptors.InParentThread()
+    in_parent   = descriptors.InParentProcess()
     in_executor = InThreadPool()
     # in_parent_thread = InParentThread()
     # in_parent_process = InParentProcess()

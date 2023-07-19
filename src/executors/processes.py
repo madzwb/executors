@@ -4,30 +4,30 @@ import threading
 
 from typing import Callable
 
+from executors import Logging
 from executors import descriptors
-from executors import logger as Logging
 
 from executors.config       import config, CONFIG
 from executors.executor     import DUMMY
 from executors.logger       import logger
+from executors.worker       import InProcess
 from executors.workers      import Workers
 
-
-class InChildProcesses(descriptors.InChilds):
-    def is_in(self, o, ot) -> bool:
-        if not issubclass(ot, ProcessesExecutor):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of ProcessesExecutor."
-                    )
-        return multiprocessing.current_process() in o.workers
+# class InChildProcesses(descriptors.InChilds):
+#     def is_in(self, o, ot) -> bool:
+#         if not issubclass(ot, ProcessesExecutor):
+#             raise   TypeError(
+#                         f"wrong object({o}) type({type(o)}), "
+#                         "must be subclass of ProcessesExecutor."
+#                     )
+#         return multiprocessing.current_process() in o.workers
 
 class ProcessesExecutor(Workers):
 
     max_cpus    = 61
 
     in_parent   = descriptors.InParentProcess()
-    in_executor = InChildProcesses()
+    in_executor = InProcess()
     actives     = descriptors.ActiveProcesses()
 
     @classmethod
@@ -80,6 +80,7 @@ class ProcessesExecutor(Workers):
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
+        executor.executor = multiprocessing.current_process()
         Workers.worker(executor, conf)#, tasks, results, create)
 
     """
@@ -92,7 +93,7 @@ class ProcessesExecutor(Workers):
             raise   RuntimeError(\
                         f"join to object({id(self)}) of type {type(self).__name__}', "
                         f"created in process({self.parent_pid}), "
-                        f"from process {multiprocessing.current_process().ident} failed."
+                        f"from process({multiprocessing.current_process().ident}) failed."
                         f"Joining allowed for creator process only."
                     )
         # Check if ProcessesExecutor object created in static method -

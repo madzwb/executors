@@ -3,22 +3,22 @@ import sys
 
 from typing import Callable
 
+from executors import Logging
 from executors import descriptors
-from executors import logger as Logging
 
 from executors.config   import config, CONFIG
 from executors.executor import DUMMY
 from executors.logger   import logger
 from executors.thread   import ThreadExecutor
-from executors.worker   import Worker
+from executors.worker   import Worker, InProcess
 
 
-# TODO:
+
 """Single process"""
 class ProcessExecutor(ThreadExecutor):
     
-    # in_executor = InProcess()
     in_parent   = descriptors.InParentProcess()
+    in_executor = InProcess()
     # actives     = ActiveProcesses()
 
     @classmethod
@@ -57,6 +57,7 @@ class ProcessExecutor(ThreadExecutor):
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
+        executor.executor = multiprocessing.current_process()
         Worker.worker(executor, conf)
 
     def create_executor(self, /, *args, **kwargs):

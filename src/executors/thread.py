@@ -4,20 +4,21 @@ import queue
 
 from typing import Callable
 
-from executors import logger as Logging
-from executors  import descriptors
+from executors import Logging
+from executors import descriptors
 
 from executors.logger       import logger
 from executors.mainthread   import MainThreadExecutor
 from executors.value        import Value
-from executors.worker       import Worker
+from executors.worker       import Worker, InThread
+
 
 
 """Single thread"""
 class ThreadExecutor(MainThreadExecutor, Worker):
 
-    # in_executor = InThread()
     in_parent   = descriptors.InParentThread()
+    in_executor = InThread()
     # actives     = ActiveThreads()
 
     @classmethod
@@ -73,7 +74,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None:
             # From parent - create thread, put task into queue
-            if self.in_parent and self.executor is None:
+            if self.executor is None: #self.in_parent and 
                 # task.executor = self
                 self.tasks.put_nowait(task)
                 logger.info(
