@@ -4,9 +4,9 @@ import queue
 from concurrent.futures import Future
 from typing import  Callable
 
-from executors.executor import Executor
+from executors import Logging
 
-import executors.logger as Logging
+from executors.executor import Executor
 from executors.logger   import logger
 
 

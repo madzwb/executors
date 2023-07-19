@@ -4,7 +4,7 @@ import queue
 
 from typing import Callable
 
-from executors import logger as Logging
+from executors import Logging
 from executors import descriptors
 
 from executors.logger   import logger

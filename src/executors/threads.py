@@ -3,11 +3,11 @@ import queue
 
 from typing import Callable
 
-from executors import logger as Logging
+from executors import Logging
 from executors import descriptors
 
-from executors.logger import logger
-from executors.workers import Workers
+from executors.logger   import logger
+from executors.workers  import Workers
 
 
 class InChildThreads(descriptors.InChilds):
