@@ -11,28 +11,29 @@ import unittest
 
 from abc import ABC, abstractmethod
 
-from executors import iexecutor#IExecutor
-# from executors.executors import Executor
-from executors.logger import logger
+from executors import iexecutor
 
-if __name__ == "__main__":
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.DEBUG)
+from executors import *#.executors
 
-import executors.executors
+# if __name__ == "__main__":
+stream_logger = logging.StreamHandler()
+stream_logger.setFormatter(Logging.formatter)
+logger.addHandler(stream_logger)
 
 import registrator.registrator as registrator
 
 class EXECUTERS(registrator.REGISTRATOR):
     pass
 # EXECUTERS.register("Executor", "src.executors.executors", vars(sys.modules["src.executors.executors"]), IExecutor)
-EXECUTERS.register("Executor", "executors.executors", vars(sys.modules["executors.executors"]), iexecutor.IExecutor)
+EXECUTERS.register("Executor", "executors", vars(sys.modules["executors"]), iexecutor.IExecutor)
 registry = EXECUTERS()
 
 PROFILING   = False
 TIMEOUT     = 0.3
 TASKS       = 33
 
+# class Config:
+#     pass
 
 class IAction(ABC):
     
@@ -63,8 +64,6 @@ class Task(ITask):
 
     def __str__(self):
         return f"Task: {self.i}"
-
-# if __name__ == "__main__":
 
 def submit_tasks(executor, timeout = None):
     for i in range(TASKS):
@@ -103,8 +102,9 @@ def active_processes(process) -> int:
             count = actives
     return count
 
-class ExecutorsTestCase(unittest.TestCase):
 
+
+class CommonTestCase(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.results = []
@@ -120,7 +120,11 @@ class ExecutorsTestCase(unittest.TestCase):
             self.profile.disable()
             self.profile.print_stats(sort="ncalls")
 
-    def test_MainThreadExecutor(self):
+
+
+class MainThread(CommonTestCase):
+
+    def test(self):
         name = "mainthread"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -131,7 +135,11 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-    def test_ThreadExecutor(self):
+
+
+class Thread(CommonTestCase):
+
+    def test(self):
         name = "thread"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -144,7 +152,11 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-    def test_ProcessExecutor(self):
+
+
+class Process(CommonTestCase):
+
+    def test(self):
         name = "process"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -159,7 +171,11 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-    def test_ThreadsExecutor(self):
+
+
+class Threads(CommonTestCase):
+
+    def test(self):
         name = "threads"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -172,7 +188,11 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-    def test_ProcessesExecutor(self):
+
+
+class Processes(CommonTestCase):
+
+    def test(self):
         name = "processes"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -187,7 +207,11 @@ class ExecutorsTestCase(unittest.TestCase):
         logger.info(f"Testing '{name}' end.")
         return
 
-    def test_ThreadPoolExecutor(self):
+
+
+class ThreadPool(CommonTestCase):
+
+    def test(self):
         name = "threadpool"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -201,7 +225,11 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
 
-    def test_ProcessPoolExecutor(self):
+
+
+class ProcessPool(CommonTestCase):
+
+    def test(self):
         name = "processpool"
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
@@ -214,6 +242,8 @@ class ExecutorsTestCase(unittest.TestCase):
         self.assertEqual(len(results), TASKS)
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
+
+
 
 if __name__ == "__main__":
     unittest.main()
