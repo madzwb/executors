@@ -41,7 +41,7 @@ from executors.executor     import Executor
 
 class InParent(ABC):
     @abstractmethod
-    def pid(self, o, ot) -> bool: ...
+    def is_in(self, o, ot) -> bool: ...
 
     #   parent_pid == 0 - has special behavior!!!
     def __get__(self, o, ot) -> bool:
@@ -50,21 +50,22 @@ class InParent(ABC):
                         f"wrong object({o}) type({type(o)}), "
                         "must be subclass of Executor."
                     )
-        return      hasattr(o,"parent_pid")     \
-                and o.parent_pid is not None    \
-                and o.parent_pid > 0            \
-                and self.pid(o, ot)
+        return self.is_in(o, ot)
+        # return      hasattr(o,"parent_pid")     \
+        #         and o.parent_pid is not None    \
+        #         and o.parent_pid > 0            \
+        #         and self.is_in(o, ot)
 
 
 
 class InParentProcess(InParent):
-    def pid(self, o, ot) -> bool:
+    def is_in(self, o, ot) -> bool:
         return multiprocessing.current_process().ident == o.parent_pid
 
 
 
 class InParentThread(InParent):
-    def pid(self, o, ot) -> bool:
+    def is_in(self, o, ot) -> bool:
         return threading.current_thread().ident == o.parent_tid
 
 
