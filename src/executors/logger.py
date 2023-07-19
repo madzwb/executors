@@ -3,10 +3,16 @@ import multiprocessing
 import os
 import threading
 
-from config import config
+from executors.config import config
+
+formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] - %(message)s")
+formatter_result = logging.Formatter("%(message)s")
+formatter.default_msec_format = '%s.%03d'
 
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 logger.addHandler(logging.NullHandler())
+level = logging.DEBUG if config.DEBUG else logging.INFO
+logger.setLevel(level)
 
 def _repr_process(process = multiprocessing.current_process()) -> str:
     return "<Process "\
