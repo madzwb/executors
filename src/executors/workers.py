@@ -2,9 +2,9 @@ import os
 import multiprocessing
 import threading
 
-import executors.logger as Logging
+from executors import Logging
 
-from executors  import descriptors
+# from executors  import descriptors
 
 from executors.value    import Value
 from executors.worker   import Worker
@@ -21,23 +21,6 @@ class CounterInBounds():
                         "must be subclass of Workers."
                     )
         return  o.iworkers.value < o.max_workers or  o.iworkers.value == 0
-
-
-
-class ExecutorCreationAllowed():
-
-    def __get__(self, o, ot) -> bool:
-        if not issubclass(ot, Workers):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of Workers."
-                    )
-        return      o.iworkers.value < o.max_workers\
-                and (
-                        not o.tasks.empty()
-                        or  o.tasks.qsize()
-                    )\
-                # and o.iworkers.value <= len(multiprocessing.active_children())
 
 
 
@@ -73,8 +56,13 @@ class Workers(Worker):
             self.max_workers = min(self.max_cpus, max_workers)
 
     def join(self, timeout = None) -> bool:
-        if self.in_executor:
-            raise RuntimeError("can't join from child.")
+        if not self.in_parent:
+            raise   RuntimeError(\
+                        f"join to object({id(self)}) of type {type(self).__name__}', "
+                        f"created in process({self.parent_pid}), "
+                        f"from process({multiprocessing.current_process().ident}) failed."
+                        f"Joining allowed for creator process only."
+                    )
         if self.iworkers.value >= self.max_workers:
             # All workers created. Join childs.
             # TODO: try_count and timeout is not tested.
