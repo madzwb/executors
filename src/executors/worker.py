@@ -4,18 +4,66 @@ import sys
 import time
 import threading
 
-import executors.logger as Logging
+from executors import Logging
+from executors import descriptors
 
 from executors.config   import CONFIG
 from executors.executor import Executor
 from executors.logger   import logger
 
 
+
+class InThread(descriptors.InChilds):
+    
+    def is_in(self, o, ot):
+        return threading.current_thread().ident == o.executor.ident
+
+    def __get__(self, o, ot):
+        if not issubclass(ot, Worker):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ThreadExecutor."
+                    )
+        return self.is_in(o, ot)
+
+
+
+class InProcess(descriptors.InChilds):
+    
+    def is_in(self, o, ot):
+        return multiprocessing.current_process().ident == o.executor.ident
+
+    def __get__(self, o, ot):
+        if not issubclass(ot, Worker):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ThreadExecutor."
+                    )
+        return self.is_in(o, ot)
+
+
+
+class ExecutorCreationAllowed():
+
+    def __get__(self, o, ot) -> bool:
+        if not issubclass(ot, Worker):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of Workers."
+                    )
+        return      o.iworkers.value < o.max_workers\
+                and (
+                        not o.tasks.empty()
+                        or  o.tasks.qsize()
+                    )\
+                # and o.iworkers.value <= len(multiprocessing.active_children())
+
+
 class Worker(Executor):
     
     TRIES = 0
 
-    # executor_creation   = True
+    executor_creation   = ExecutorCreationAllowed
     # executor_counter    = True
 
     def __init__(
@@ -49,7 +97,6 @@ class Worker(Executor):
 
         logger.debug(f"{Logging.info(caller)} started.")
         executor.started = True
-        
         while True:
             task = None
             logger.debug(
