@@ -23,7 +23,7 @@ class InChildThreads(descriptors.InChilds):
 
 class ThreadsExecutor(Workers):
 
-    max_cpus    = 32
+    MAX_UNITS    = 32
 
     in_parent   = descriptors.InParentProcess()
     in_executor = InChildThreads()

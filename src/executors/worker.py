@@ -96,7 +96,9 @@ class Worker(Executor):
             logger.debug(f"{Logging.info(caller)} logging prepeared.")
 
         logger.debug(f"{Logging.info(caller)} started.")
-        executor.started = True
+        # executor.started = True
+        if conf is not None and conf.DEBUG:
+            processed = 0
         while True:
             task = None
             logger.debug(
@@ -135,15 +137,16 @@ class Worker(Executor):
                             tries += 1
                             time.sleep(tries)
                             continue
-                        # On empty put back sentinel
-                        executor.tasks.put_nowait(None)
+                        # On empty put back sentinel for other processes
+                        if executor.iworkers.value > 1:
+                            executor.tasks.put_nowait(None)
                         break
             
             if task is not None:
-                # TODO: Move out.
-                if executor.create is not None and executor.executor_creation:
-                    logger.debug(f"{Logging.info(caller)} creation requested. ")
-                    executor.create.set()
+                # # TODO: Move out.
+                # if executor.create is not None and executor.executor_creation:
+                #     logger.debug(f"{Logging.info(caller)} creation requested. ")
+                #     executor.create.set()
                 # Call task
                 try:
                     # Set executor for subtasks submitting
@@ -163,6 +166,8 @@ class Worker(Executor):
                     #     info += f"with str(time)s"
                     info += "."
                     logger.info(info)
+                    if conf is not None and conf.DEBUG:
+                        processed += 1
                 except Exception as e:
                     result = str(e)
                     logger.error(f"{Logging.info(caller)}. {result}.")
@@ -190,8 +195,11 @@ class Worker(Executor):
                 f"results={executor.results.qsize()}"
             ">."
         )
+        # executor.iworkers.value -= 1
+        # executor.shutdown()
+        executor.is_shutdown.value = 1
+        executor.iworkers.value -= 1
         if executor.create is not None:
             logger.debug(f"{Logging.info(caller)} exiting signaled. ")
             executor.create.set()
-        executor.shutdown()
         return

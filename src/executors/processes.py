@@ -24,7 +24,7 @@ from executors.workers      import Workers
 
 class ProcessesExecutor(Workers):
 
-    max_cpus    = 61
+    MAX_UNITS   = 61
 
     in_parent   = descriptors.InParentProcess()
     in_executor = InProcess()
@@ -40,6 +40,8 @@ class ProcessesExecutor(Workers):
             self,
             max_workers = None,
             parent_pid = multiprocessing.current_process().ident
+            , * ,
+            wait = False
         ):
         super(ProcessesExecutor, self).__init__(max_workers, parent_pid)
         # self.parent_pid = parent_pid
@@ -49,6 +51,7 @@ class ProcessesExecutor(Workers):
         self.create     = multiprocessing.Event()   # Create new process
 
         self.iworkers   = multiprocessing.Value("i", 0)
+        self.is_shutdown= multiprocessing.Value("B", 0)
 
     def start(self) -> bool:
         if not self.started:
@@ -68,14 +71,16 @@ class ProcessesExecutor(Workers):
             results,
             create,
             iworkers,
+            is_shutdown,
             max_workers,
-            parent_pid = multiprocessing.current_process().ident
+            parent_pid = multiprocessing.current_process().ident,
         ):
         executor = ProcessesExecutor(max_workers, parent_pid)
         executor.tasks      = tasks
         executor.results    = results
         executor.create     = create
         executor.iworkers   = iworkers
+        executor.is_shutdown= is_shutdown
         logger.debug(
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
@@ -105,6 +110,10 @@ class ProcessesExecutor(Workers):
             )
             return False
         
+        # # Dead lock
+        # if not self.started:
+        #     return self.start()
+        
         while self.in_bounds:
             logger.debug(
                 f"{Logging.info(self.__class__.__name__)}. "
@@ -128,49 +137,56 @@ class ProcessesExecutor(Workers):
                         f"Skip creation request. "
                         f"Tasks' count={ self.tasks.qsize()}."
                     )
-                if self.actives < self.iworkers.value: # type: ignore
+                elif self.actives < self.iworkers.value: # type: ignore
                     logger.debug(
                         f"{Logging.info(self.__class__.__name__)}. "
                         "Skip creation request. "
                         "Process creation is requested already and in progress."
                     )
-                logger.debug(
-                    f"{Logging.info(self.__class__.__name__)}. "
-                    "Going to wait for creation request."
-                )
-            else:
-                # Create child process.
-                self.create.clear()
-                # Create configuration for process
-                # (copy module environment to dictionary)
-                # https://peps.python.org/pep-0713/
-                conf =  sys.modules[CONFIG].__call__()  \
-                            if CONFIG in sys.modules    \
-                            else                        \
-                        config
-                worker = self.creator(
-                            target  =   self.worker,
-                            args    =   (
-                                            conf,
-                                            self.tasks,
-                                            self.results,
-                                            self.create,
-                                            self.iworkers,
-                                            self.max_workers,
-                                            DUMMY # Create dummy
-                                        )
-                        )
-                self.iworkers.value += 1 # type: ignore
-                self.workers.append(worker)
-                worker.start()
-                logger.debug(
-                    f"{Logging.info(self.__class__.__name__)}. "
-                    f"{worker} started."
-                )
-                if super().join(timeout):
-                    break
                 else:
-                    continue
+                    logger.debug(
+                        f"{Logging.info(self.__class__.__name__)}. "
+                        "Going to wait for creation request."
+                    )
+                continue
+            else:
+                if self.is_shutdown.value:
+                    break
+                # Create child processes.
+                self.create.clear()
+                for i in range(min(self.max_workers,self.tasks.qsize())):
+                    # Create configuration for process
+                    # (copy module environment to dictionary)
+                    # https://peps.python.org/pep-0713/
+                    conf =  sys.modules[CONFIG].__call__()  \
+                                if CONFIG in sys.modules    \
+                                else                        \
+                            config
+                    worker = self.creator(
+                                target  =   self.worker,
+                                args    =   (
+                                                conf,
+                                                self.tasks,
+                                                self.results,
+                                                self.create,
+                                                self.iworkers,
+                                                self.is_shutdown,
+                                                self.max_workers,
+                                                DUMMY, # Create dummy
+                                            )
+                            )
+                    self.iworkers.value += 1 # type: ignore
+                    self.workers.append(worker)
+                    worker.start()
+                    logger.debug(
+                        f"{Logging.info(self.__class__.__name__)}. "
+                        f"{worker} started."
+                    )
+        super(ProcessesExecutor, self).join(timeout)
+            # if super().join(timeout):
+            #     break
+            # else:
+            #     continue
         return True
     
     def submit(self, task: Callable|None, /, *args, **kwargs) -> bool:#, tasks, results, create, /, *args, **kwargs) -> bool:

@@ -11,7 +11,7 @@ if __name__ == "__main__":
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
 
-import executors.logger as Logging
+import executors.logger     as Logging
 import executors.iexecutor  as iexecutor
 
 

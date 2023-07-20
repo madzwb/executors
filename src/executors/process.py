@@ -31,6 +31,8 @@ class ProcessExecutor(ThreadExecutor):
             self,
             max_workers = None,
             parent_pid  = multiprocessing.current_process().ident
+            , * ,
+            wait = False
         ):
         super(ProcessExecutor, self).__init__(parent_pid)
         self.max_workers= max_workers
@@ -38,6 +40,7 @@ class ProcessExecutor(ThreadExecutor):
         self.results    = multiprocessing.Queue()
         # self.create     = multiprocessing.Event()   # Create new process
         self.iworkers   = multiprocessing.Value("i", 0)
+        self.is_shutdown= multiprocessing.Value("B", 0)
 
     @staticmethod
     def worker(
@@ -45,6 +48,7 @@ class ProcessExecutor(ThreadExecutor):
             tasks,
             results,
             iworkers,
+            is_shutdown,
             max_workers,
             parent_pid = multiprocessing.current_process().ident
         ):
@@ -53,6 +57,7 @@ class ProcessExecutor(ThreadExecutor):
         executor.results    = results
         # executor.create     = create
         executor.iworkers   = iworkers
+        executor.is_shutdown= is_shutdown
         logger.debug(
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
@@ -76,6 +81,7 @@ class ProcessExecutor(ThreadExecutor):
                                         self.tasks,
                                         self.results,
                                         self.iworkers,
+                                        self.is_shutdown,
                                         1,
                                         DUMMY
                                     ) + args,

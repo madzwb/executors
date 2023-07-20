@@ -31,6 +31,7 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         super(ThreadExecutor, self).__init__(parent_pid)
         self.tasks      = queue.Queue()
         self.iworkers   = Value(0)
+        self.is_shutdown= Value(0)
          # Reset to None to creaet a new thread in 'submit' method
         self.executor = None
         self.started = False
