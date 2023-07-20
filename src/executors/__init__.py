@@ -22,6 +22,7 @@ import executors.logger as Logging
 from executors.logger   import logger
 
 # from executors.config       import config, CONFIG
+from executors.iexecutor    import IExecutor
 from executors.executor     import Executor
 from executors.mainthread   import MainThreadExecutor
 from executors.thread       import ThreadExecutor

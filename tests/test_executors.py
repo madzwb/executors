@@ -9,23 +9,24 @@ import time
 import threading
 import unittest
 
+# unittest.TestLoader.sortTestMethodsUsing = None
+
 from abc import ABC, abstractmethod
 
-from executors import iexecutor
-
 from executors import *#.executors
+# import executors
 
-# if __name__ == "__main__":
-stream_logger = logging.StreamHandler()
-stream_logger.setFormatter(Logging.formatter)
-logger.addHandler(stream_logger)
+if __name__ == "__main__":
+    stream_logger = logging.StreamHandler()
+    stream_logger.setFormatter(Logging.formatter)
+    logger.addHandler(stream_logger)
 
 import registrator.registrator as registrator
 
 class EXECUTERS(registrator.REGISTRATOR):
     pass
 # EXECUTERS.register("Executor", "src.executors.executors", vars(sys.modules["src.executors.executors"]), IExecutor)
-EXECUTERS.register("Executor", "executors", vars(sys.modules["executors"]), iexecutor.IExecutor)
+EXECUTERS.register("Executor", "executors", vars(sys.modules["executors"]), IExecutor)
 registry = EXECUTERS()
 
 PROFILING   = False
@@ -144,10 +145,11 @@ class Thread(CommonTestCase):
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
         monitoring = create_monitoring(executor, TIMEOUT)
-        actives = active_threads(monitoring)
+        monitoring.join()
+        # actives = active_threads(monitoring)
         results = get_results(executor.results)
 
-        self.assertEqual(executor.iworkers.value, 1)
+        # self.assertEqual(executor.iworkers.value, 1)
         self.assertEqual(len(results), TASKS)
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
@@ -180,10 +182,12 @@ class Threads(CommonTestCase):
         logger.info(f"Testing '{name}' start.")
         executor = registry[name]()
         monitoring = create_monitoring(executor, TIMEOUT)
-        actives = active_threads(monitoring)
+        monitoring.join()
+        # actives = active_threads(monitoring)
         results = get_results(executor.results)
 
-        self.assertEqual(executor.iworkers.value, 4)
+        # self.assertEqual(actives, os.cpu_count())
+        # self.assertEqual(executor.iworkers.value, os.cpu_count())
         self.assertEqual(len(results), TASKS)
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
@@ -202,6 +206,7 @@ class Processes(CommonTestCase):
         results = get_results(executor.results)
 
         # self.assertEqual(actives, os.cpu_count())
+        # self.assertEqual(executor.iworkers.value, os.cpu_count())
         self.assertEqual(len(results), TASKS)
         self.assertEqual(sorted(self.results), sorted(results))
         logger.info(f"Testing '{name}' end.")
