@@ -92,12 +92,12 @@ class Worker(Executor):
         # Update 'config' module with conf
         if CONFIG in sys.modules and conf is not None:
             sys.modules[CONFIG].__call__(conf)
-            # logger_init()
+            Logging.init() # Reinit logger
             logger.debug(f"{Logging.info(caller)} logging prepeared.")
 
         logger.debug(f"{Logging.info(caller)} started.")
         # executor.started = True
-        if conf is not None and conf.DEBUG:
+        if conf is not None and hasattr(conf, "DEBUG") and conf.DEBUG:
             processed = 0
         while True:
             task = None
@@ -166,7 +166,7 @@ class Worker(Executor):
                     #     info += f"with str(time)s"
                     info += "."
                     logger.info(info)
-                    if conf is not None and conf.DEBUG:
+                    if conf is not None and hasattr(conf, "DEBUG") and conf.DEBUG:
                         processed += 1
                 except Exception as e:
                     result = str(e)
