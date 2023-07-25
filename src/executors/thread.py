@@ -64,13 +64,19 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             )
         return self.executor
 
-    def start(self):
-        if not self.started and self.executor is not None:
-            self.executor.start()
+    def start(self, wait = True):
+        if not self.started:
+            if self.executor is None:
+                self.create_executor()
+            if self.executor is not None:
+                self.executor.start()
             logger.debug(
                 f"{Logging.info(self.__class__.__name__)}. "
                 f"Executor:{self.executor} going to start."
             )
+            if wait:
+                while not self.executor.is_alive():
+                    continue
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None:
