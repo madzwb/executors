@@ -11,7 +11,7 @@ if __name__ == "__main__":
     logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.DEBUG)
 
-import executors.logger     as Logging
+from executors import Logging
 import executors.iexecutor  as iexecutor
 
 
@@ -84,25 +84,34 @@ class Executor(iexecutor.IExecutor):
                 self.process_results(child.results)
             for alias in remove:
                 self.childs.pop(alias)
-            logger.debug(
-                f"{Logging.info(self.__class__.__name__)} "
-                "shutted down."
-            )
+        
+        if self.tasks is not None:
+            self.tasks.put_nowait(None)
         
         if self.executor is not None and not self.is_dummy():
-            if self.tasks:
-                self.tasks.put_nowait(None)
             if wait and not self.in_executor and hasattr(self.executor, "join"):
                 self.executor.join(wait)
                 result = True
             else:   # TODO
                 pass#self.executor.daemon = True        return result
         else:
+            if wait and hasattr(self, "workers"):
+                for worker in self.workers:
+                    if worker.is_alive():
+                        worker.join()
+            # for process in multiprocessing.active_children():
+            #     process.join()
             result = True
+        logger.debug(
+            f"{Logging.info(self.__class__.__name__)} "
+            "shutted down."
+        )
         return result
     
     def process_results(self, results) -> int:
         processed = 0
+        if id(self.results) == id(results):
+            return processed
         if self.results is not None and results:
             match type(results).__name__:
                 case    "str":
