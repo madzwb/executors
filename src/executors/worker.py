@@ -43,27 +43,28 @@ class InProcess(descriptors.InChilds):
 
 
 
-class ExecutorCreationAllowed():
+# class ExecutorCreationAllowed():
 
-    def __get__(self, o, ot) -> bool:
-        if not issubclass(ot, Worker):
-            raise   TypeError(
-                        f"wrong object({o}) type({type(o)}), "
-                        "must be subclass of Workers."
-                    )
-        return      o.iworkers.value < o.max_workers\
-                and (
-                        not o.tasks.empty()
-                        or  o.tasks.qsize()
-                    )\
-                # and o.iworkers.value <= len(multiprocessing.active_children())
+#     def __get__(self, o, ot) -> bool:
+#         if not issubclass(ot, Worker):
+#             raise   TypeError(
+#                         f"wrong object({o}) type({type(o)}), "
+#                         "must be subclass of Workers."
+#                     )
+#         return      o.iworkers.value < o.max_workers\
+#                 and (
+#                         not o.tasks.empty()
+#                         or  o.tasks.qsize()
+#                     )\
+#                 # and o.iworkers.value <= len(multiprocessing.active_children())
 
 
 class Worker(Executor):
     
-    TRIES = 0
+    MAX_TRIES = 0
+    MAX_UNITS = 1
 
-    executor_creation   = ExecutorCreationAllowed
+    # executor_creation   = ExecutorCreationAllowed
     # executor_counter    = True
 
     def __init__(
@@ -133,7 +134,7 @@ class Worker(Executor):
                             break
                     except Exception as e: # Fucking shit
                         task = None
-                        if tries < Worker.TRIES:
+                        if tries < Worker.MAX_TRIES:
                             tries += 1
                             time.sleep(tries)
                             continue
