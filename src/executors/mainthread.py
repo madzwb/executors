@@ -9,6 +9,7 @@ from executors import descriptors
 
 from executors.logger   import logger
 from executors.executor import Executor
+from executors.value    import Value
 
 """Main thread"""
 class MainThreadExecutor(Executor):
@@ -21,6 +22,7 @@ class MainThreadExecutor(Executor):
         self.executor   = threading.current_thread()
         self.results    = queue.Queue()
         self.started    = True
+        self.iworkers   = Value(0)
 
     @classmethod
     def init(cls, /, *args, **kwargs) -> bool:
@@ -51,10 +53,11 @@ class MainThreadExecutor(Executor):
                     f"{Logging.info(self.__class__.__name__)}. "
                     f"{task} done."
                 )
-                if self.results is not None and self.results != result:
-                    self.results.put_nowait(result)
+                self.process_results(result)
+                # if self.results is not None and self.results != result:
+                #     self.results.put_nowait(result)
             except Exception as e:
-                result = e
+                result = str(e)
                 if self.results is not None:
                     self.results.put_nowait(str(e))
             return True
