@@ -20,7 +20,7 @@ classifiers = [
 
 dependencies = [
   "registrator@git+https://www.github.com/madzwb/registrator@0.1.0",
-  "logger@git+https://www.github.com/madzwb/logger@0.2.0",
+  "logger@git+https://www.github.com/madzwb/logger.git",#@0.2.0
 ]
 
 [project.urls]

@@ -1,9 +1,13 @@
 from common import *
 
-config.config.SCRIPT = __file__
+print(__name__)
 if "logger.config" in sys.modules:
-    Logging.init()
-    Logging.truncate()
+    if      __name__ == "__main__"          \
+        or  __name__ == "test_executors"    \
+        :
+        config.config.SCRIPT = __file__
+        Logging.truncate()
+        Logging.init()
 else:
     stream_logger = logging.StreamHandler()
     stream_logger.setFormatter(Logging.formatter)
