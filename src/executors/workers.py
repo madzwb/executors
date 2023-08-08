@@ -6,6 +6,7 @@ from executors import Logging
 
 # from executors  import descriptors
 
+from executors.executor import Executor
 from executors.value    import Value
 from executors.worker   import Worker
 from executors.logger   import logger
@@ -27,7 +28,7 @@ class CounterInBounds():
 """Workers"""
 class Workers(Worker):
 
-    MAX_TRIES   = 3
+    # MAX_TRIES   = 1
     MAX_UNITS   = 1
 
     # in_childs   = descriptors.InChilds()
@@ -57,52 +58,29 @@ class Workers(Worker):
             self.max_workers = min(self.MAX_UNITS, max_workers)
 
     def join(self, timeout = None) -> bool:
-        if not self.in_parent:
-            raise   RuntimeError(\
-                        f"join to object({id(self)}) of type {type(self).__name__}', "
-                        f"created in process({self.parent_pid}), "
-                        f"from process({multiprocessing.current_process().ident}) failed."
-                        f"Joining allowed for creator process only."
-                    )
-        # if self.iworkers.value >= self.max_workers:
-        # All workers created. Join childs.
+        # self.lock.acquire()
+        # if not Executor.join(self, timeout):
+        #     return False
+        self.executor = None
+        # if super(Workers, self).join(timeout):
         # TODO: try_count and timeout is not tested.
-        try_count = 0
-        while(self.workers and try_count < Workers.MAX_TRIES):
+        tries = 0
+        while(self.workers and tries < Workers.MAX_TRIES):
             remove = []
             for worker in self.workers:
-                info = ""
-                info += f"{Logging.info(self.__class__.__name__)}. "
-                info += f"Going to wait for {worker}" 
-                info += f" for {timeout}sec" if timeout else "."
-                logger.debug(info)
-
-                worker.join(timeout)
-                if not worker.is_alive():
-                    remove.append(worker)
-                else:
-                    logger.debug(
-                        f"{Logging.info(self.__class__.__name__)}. "
-                        f"{worker} not complete in {timeout}sec."
-                    )
+                    self.executor = worker
+                    if super(Workers, self).join(timeout):
+                        remove.append(self.executor)
             # Remove finished workers
             for worker in remove:
                 self.workers.remove(worker)
-            if timeout is not None and self.workers:
-                logger.debug(
-                    f"{Logging.info(self.__class__.__name__)}. "
-                    f"Not all workers complete with "
-                    f"{timeout * len(self.workers)}sec. "
-                    f"Trying again {try_count}."
-                )
-                try_count += 1
-        else:
-            if timeout is not None and try_count >= 3:
-                logger.debug(
-                    f"{Logging.info(self.__class__.__name__)}. "
-                    f"Not all workers complete with "
-                    f"{timeout*len(self.workers)}sec. "
-                    f"Try count reached {try_count}. Exiting."
-                )
-        return len(self.workers) == 0
-        # return False
+            if self.workers:
+                tries += 1
+            # else:
+        result = len(self.workers) == 0
+        # self.lock.release()
+        return result
+
+    # def shutdown(self, wait = True, * , cancel = False) -> bool:
+    #     return super(Workers, self).shutdown(wait, cancel = cancel)
+    

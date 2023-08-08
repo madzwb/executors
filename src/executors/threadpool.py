@@ -1,5 +1,5 @@
-import threading
 import concurrent.futures
+import threading
 
 from executors import descriptors
 from executors.pool import PoolExecutor
@@ -29,15 +29,5 @@ class ThreadPoolExecutor(PoolExecutor):
     def __init__(self):
         super(ThreadPoolExecutor, self).__init__()
 
-    def join(self, timeout= None) -> bool:
-        if not self.in_parent:
-            raise RuntimeError("can't join from another process.")
-        if self.in_executor:
-            raise RuntimeError("can't join from child.")
-        if not self.started:
-            self.start()
-        result = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
-        return True
-    
     # def __bool__(self) -> bool:
     #     return True
