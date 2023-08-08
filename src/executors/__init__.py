@@ -23,7 +23,7 @@ from executors.logger   import logger
 
 # from executors.config       import config, CONFIG
 from executors.iexecutor    import IExecutor
-from executors.executor     import Executor
+from executors.executor     import Executor, TASK_SENTINEL, RESULT_SENTINEL
 from executors.mainthread   import MainThreadExecutor
 from executors.thread       import ThreadExecutor
 from executors.process      import ProcessExecutor
