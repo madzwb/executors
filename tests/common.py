@@ -99,6 +99,9 @@ def active_processes(process) -> int:
 
 
 class CommonTestCase(unittest.TestCase):
+
+    name = ""
+
     def setUp(self) -> None:
         super().setUp()
         self.results = []
@@ -108,8 +111,27 @@ class CommonTestCase(unittest.TestCase):
         if PROFILING:
             self.profile = cProfile.Profile()
             self.profile.enable()
+        
+        if not self.name:
+            self.name = self.__class__.__name__.lower()
+
+    def execute(self):
+        
+        logger.info(f"Testing '{self.name}' start.")
+        executor = registry[self.name]()
+        submit_tasks(executor, TIMEOUT)
+        results = get_results(executor.results)
+
+        self.assertEqual(len(results), TASKS)
+        self.assertEqual(sorted(self.results), sorted(results))
+        self.assertNoLogs(logger,logging.ERROR)
+
+        logger.info(f"Testing '{self.name}' end.")
 
     def tearDown(self):
         if PROFILING:
             self.profile.disable()
             self.profile.print_stats(sort="ncalls")
+
+    def _test(self):
+        self.execute()
