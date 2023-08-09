@@ -8,26 +8,28 @@ from executors import Logging
 from executors import descriptors
 
 from executors.config       import config, CONFIG
-from executors.executor     import DUMMY
+from executors.executor     import DUMMY, Executor, RESULT_SENTINEL
 from executors.logger       import logger
+from executors.process      import ProcessExecutor
 from executors.worker       import InProcess
 from executors.workers      import Workers
 
-# class InChildProcesses(descriptors.InChilds):
-#     def is_in(self, o, ot) -> bool:
-#         if not issubclass(ot, ProcessesExecutor):
-#             raise   TypeError(
-#                         f"wrong object({o}) type({type(o)}), "
-#                         "must be subclass of ProcessesExecutor."
-#                     )
-#         return multiprocessing.current_process() in o.workers
+class InChilds(descriptors.InChilds):
+    def is_in(self, o, ot) -> bool:
+        if not issubclass(ot, ProcessesExecutor):
+            raise   TypeError(
+                        f"wrong object({o}) type({type(o)}), "
+                        "must be subclass of ProcessesExecutor."
+                    )
+        return multiprocessing.current_process() in o.workers
 
 class ProcessesExecutor(Workers):
 
     MAX_UNITS   = 61
 
     in_parent   = descriptors.InParentProcess()
-    in_executor = InProcess()
+    in_parent_thread = descriptors.InParentThread()
+    in_executor = InChilds()
     actives     = descriptors.ActiveProcesses()
 
     @classmethod
@@ -52,11 +54,14 @@ class ProcessesExecutor(Workers):
 
         self.iworkers   = multiprocessing.Value("i", 0)
         self.is_shutdown= multiprocessing.Value("B", 0)
+        self.lock       = multiprocessing.RLock()
 
-    def start(self) -> bool:
+        self._results   = []
+
+    def start(self, wait = True) -> bool:
         if not self.started:
             def monitor(executor):
-                return executor.join()
+                return executor._join()
             thread = threading.Thread(target=monitor, args=(self,))
             thread.start()
             self.started = True
@@ -85,35 +90,23 @@ class ProcessesExecutor(Workers):
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
-        executor.executor = multiprocessing.current_process()
+        # executor.executor = multiprocessing.current_process()
         Workers.worker(executor, conf)#, tasks, results, create)
 
-    """
 
-    """
-    def join(self, timeout = None) -> bool:
-        # If self.parent_pid is real process's pid,
-        # checking that it id is equal to creator process.
-        if not self.in_parent:
-            raise   RuntimeError(\
-                        f"join to object({id(self)}) of type {type(self).__name__}', "
-                        f"created in process({self.parent_pid}), "
-                        f"from process({multiprocessing.current_process().ident}) failed."
-                        f"Joining allowed for creator process only."
-                    )
-        # Check if ProcessesExecutor object created in static method -
-        # 'worker' as helper - parameters holder.
-        elif self.parent_pid is not None and self.parent_pid == 0:
-            logger.error(
-                f"{Logging.info(self.__class__.__name__)}. "
-                "Join to dummy."
-            )
-            return False
-        
-        # # Dead lock
-        # if not self.started:
-        #     return self.start()
-        
+    # def get_results(self, block = True, timeout = None) -> list[str]:
+    #     if not block:
+    #         return self._results#super().get_results(block, timeout)
+    #     else:
+    #         while True:
+    #             while result := self.results.get():
+    #                 if result != RESULT_SENTINEL:
+    #                     self._results.append(result)
+    #             if self.results.empty() and not self.results.qsize() and result == RESULT_SENTINEL:
+    #                 break
+    #         return self._results
+
+    def _join(self, timeout = None):
         while self.in_bounds:
             logger.debug(
                 f"{Logging.info(self.__class__.__name__)}. "
@@ -154,7 +147,7 @@ class ProcessesExecutor(Workers):
                     break
                 # Create child processes.
                 self.create.clear()
-                for i in range(min(self.max_workers,self.tasks.qsize())):
+                for i in range(min(self.max_workers - self.iworkers.value, self.tasks.qsize())):
                     # Create configuration for process
                     # (copy module environment to dictionary)
                     # https://peps.python.org/pep-0713/
@@ -182,19 +175,27 @@ class ProcessesExecutor(Workers):
                         f"{Logging.info(self.__class__.__name__)}. "
                         f"{worker} started."
                     )
-        super(ProcessesExecutor, self).join(timeout)
-            # if super().join(timeout):
-            #     break
-            # else:
-            #     continue
-        return True
+    
+    """
+
+    """
+    def join(self, timeout = None) -> bool:
+        if Executor.join(self, timeout):
+            self.joined.value = 1
+            while self.get_results() or self.actives:
+                # self.tasks.put_nowait(TASK_SENTINEL)
+                self.results.put_nowait(RESULT_SENTINEL)
+            else:
+                return Workers.join(self, timeout)
+        return False
     
     def submit(self, task: Callable|None, /, *args, **kwargs) -> bool:#, tasks, results, create, /, *args, **kwargs) -> bool:
-        # Remove reference to executor befor adding to tasks' queue.
-        if task is not None and hasattr(task, "executor"):
-            task.executor = None
         
         if task is not None:
+        # Remove reference to executor befor adding to tasks' queue.
+            # if task is not None and hasattr(task, "executor"):
+            task.executor = None
+            task.results    = None
             self.tasks.put_nowait(task)
             logger.info(
                 f"{Logging.info(self.__class__.__name__)}. "
