@@ -7,6 +7,7 @@ from typing import Callable
 from executors import Logging
 from executors import descriptors
 
+from executors.executor     import Executor, TASK_SENTINEL
 from executors.logger       import logger
 from executors.mainthread   import MainThreadExecutor
 from executors.value        import Value
@@ -17,7 +18,7 @@ from executors.worker       import Worker, InThread
 """Single thread"""
 class ThreadExecutor(MainThreadExecutor, Worker):
 
-    in_parent   = descriptors.InParentThread()
+    in_parent   = descriptors.InParentProcess()#InParentThread()
     in_executor = InThread()
     # actives     = ActiveThreads()
 
@@ -30,25 +31,18 @@ class ThreadExecutor(MainThreadExecutor, Worker):
     def __init__(self, parent_pid = multiprocessing.current_process().ident):
         super(ThreadExecutor, self).__init__(parent_pid)
         self.tasks      = queue.Queue()
-        self.iworkers   = Value(0)
+        self.iworkers   = Value(1)
         self.is_shutdown= Value(0)
          # Reset to None to creaet a new thread in 'submit' method
         self.executor = None
         self.started = False
+        self.lock       = threading.Lock()
 
     def join(self, timeout= None) -> bool:
         if self.in_executor:
             raise RuntimeError("can't do self-joining.")
-        if self.executor is not None:
-            if not self.started:
-                self.start()
-            info = ""
-            info += f"{Logging.info(self.__class__.__name__)}. "
-            info += f"Going to wait for executor:{self.executor}"
-            info += f" for {timeout}sec" if timeout else "."
-            logger.debug(info)
-            self.executor.join(timeout)
-            return True
+        if Executor.join(self, timeout):
+            return Worker.join(self, timeout)
         return False
 
     def create_executor(self, /, *args, **kwargs):
@@ -65,18 +59,15 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         return self.executor
 
     def start(self, wait = True):
-        if not self.started:
+        if super(ThreadExecutor, self).start(wait):
             if self.executor is None:
                 self.create_executor()
             if self.executor is not None:
                 self.executor.start()
-            logger.debug(
-                f"{Logging.info(self.__class__.__name__)}. "
-                f"Executor:{self.executor} going to start."
-            )
             if wait:
                 while not self.executor.is_alive():
                     continue
+                    self.started = True
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None:
@@ -120,6 +111,9 @@ class ThreadExecutor(MainThreadExecutor, Worker):
             )
             return False
         return True
+
+    # def shutdown(self, wait = True, * , cancel = False) -> bool:
+    #     return super(ThreadExecutor ,self).shutdown(wait, cancel = cancel)
 
     # def __bool__(self) -> bool:
     #     return True
