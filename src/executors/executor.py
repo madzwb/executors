@@ -104,7 +104,7 @@ class Executor(iexecutor.IExecutor):
                     break
         return task
 
-    def get_results(self, block = True, timeout = None) -> list[str]|queue.Queue:
+    def get_results(self, block = True, timeout = None) -> int:#list[str]|queue.Queue:
         processed = 0
         if not block:
             # results = []
@@ -171,11 +171,11 @@ class Executor(iexecutor.IExecutor):
             )
             return False
         if self.executor is not None:
-        info = ""
-        info += f"{Logging.info(self.__class__.__name__)}. "
-        info += f"Going to wait for {self.executor}" 
-        info += f" for {timeout}sec" if timeout else "."
-        logger.debug(info)
+            info = ""
+            info += f"{Logging.info(self.__class__.__name__)}. "
+            info += f"Going to wait for {self.executor}" 
+            info += f" for {timeout}sec" if timeout else "."
+            logger.debug(info)
         # if self.parent is None:
         #     self.submit(TASK_SENTINEL)
         return True
@@ -198,22 +198,22 @@ class Executor(iexecutor.IExecutor):
 
         if self.childs:# and not self.is_dummy():
             if self.is_dummy() or self.iworkers.value <= 1:# and self.is_shutdown.value:
-            remove = []
-            for alias, child in self.childs.items():
+                remove = []
+                for alias, child in self.childs.items():
                     child.submit(TASK_SENTINEL)
                     if r := child.shutdown(True, cancel = cancel): # Always wait for childs
-                    remove.append(alias)
+                        remove.append(alias)
                         # child.results.put_nowait(RESULT_SENTINEL)
                         results = child.get_results()
                         self.process_results(self.results, child.lresults)
-                else:
-                    logger.error(
-                        f"{Logging.info(self.__class__.__name__)}. "
-                        f"'{alias}' shutdown error."
-                    )
+                    else:
+                        logger.error(
+                            f"{Logging.info(self.__class__.__name__)}. "
+                            f"'{alias}' shutdown error."
+                        )
                         result = False
-            for alias in remove:
-                self.childs.pop(alias)
+                for alias in remove:
+                    self.childs.pop(alias)
             else:
                 logger.debug(
                     f"{Logging.info(self.__class__.__name__)} "
