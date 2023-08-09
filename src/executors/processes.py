@@ -54,6 +54,7 @@ class ProcessesExecutor(Workers):
 
         self.iworkers   = multiprocessing.Value("i", 0)
         self.is_shutdown= multiprocessing.Value("B", 0)
+        self.joined     = multiprocessing.Value("B", 0)
         self.lock       = multiprocessing.RLock()
 
         self._results   = []
@@ -77,6 +78,7 @@ class ProcessesExecutor(Workers):
             create,
             iworkers,
             is_shutdown,
+            joined,
             max_workers,
             parent_pid = multiprocessing.current_process().ident,
         ):
@@ -86,8 +88,9 @@ class ProcessesExecutor(Workers):
         executor.create     = create
         executor.iworkers   = iworkers
         executor.is_shutdown= is_shutdown
+        executor.joined     = joined
         logger.debug(
-            f"{Logging.info(executor.__class__.__name__)}. "
+            f"{Logging.info(ProcessesExecutor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
         )
         # executor.executor = multiprocessing.current_process()
@@ -164,6 +167,7 @@ class ProcessesExecutor(Workers):
                                                 self.create,
                                                 self.iworkers,
                                                 self.is_shutdown,
+                                                self.joined,
                                                 self.max_workers,
                                                 DUMMY, # Create dummy
                                             )
