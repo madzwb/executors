@@ -27,7 +27,7 @@ class ThreadsExecutor(Workers):
 
     in_parent   = descriptors.InParentProcess()
     in_executor = InChildThreads()
-    # actives     = ActiveThreads()
+    actives     = descriptors.ActiveThreads()
 
     @classmethod
     def init(cls) -> bool:
@@ -39,15 +39,16 @@ class ThreadsExecutor(Workers):
         super(ThreadsExecutor, self).__init__(max_workers)
         self.tasks      = queue.Queue()
         self.results    = queue.Queue()
-        # self.create     = threading.Event()
 
-    def start(self):
+        self.lock       = threading.RLock()
+
+    def start(self, wait = True):
         return self.started
 
-    def join(self, timeout= None) -> bool:
-        if not self.in_parent:
-            raise RuntimeError("can't join from another process.")
-        return super(ThreadsExecutor, self).join(timeout)
+    # def join(self, timeout= None) -> bool:
+    #     # if not self.in_parent:
+    #     #     raise RuntimeError("can't join from another process.")
+    #     return super(ThreadsExecutor, self).join(timeout)
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
         if task is not None:

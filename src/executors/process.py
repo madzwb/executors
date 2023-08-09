@@ -1,5 +1,6 @@
 import multiprocessing
 import sys
+import threading
 
 from typing import Callable
 
@@ -7,7 +8,7 @@ from executors import Logging
 from executors import descriptors
 
 from executors.config   import config, CONFIG
-from executors.executor import DUMMY
+from executors.executor import DUMMY, RESULT_SENTINEL, TASK_SENTINEL, Executor
 from executors.logger   import logger
 from executors.thread   import ThreadExecutor
 from executors.worker   import Worker, InProcess
@@ -29,7 +30,7 @@ class ProcessExecutor(ThreadExecutor):
 
     def __init__(
             self,
-            max_workers = None,
+            max_workers = 1,
             parent_pid  = multiprocessing.current_process().ident
             , * ,
             wait = False
@@ -41,6 +42,42 @@ class ProcessExecutor(ThreadExecutor):
         # self.create     = multiprocessing.Event()   # Create new process
         self.iworkers   = multiprocessing.Value("i", 0)
         self.is_shutdown= multiprocessing.Value("B", 0)
+        self.joined     = multiprocessing.Value("B", 0)
+        self.lock       = multiprocessing.Lock()
+
+        # self._results   = []
+        # self.tasks.cancel_join_thread()
+
+    # def start(self, wait = True) -> bool:
+    #     if not self.started:
+    #         super(ProcessExecutor, self).start(wait)
+    #         def monitor(executor):
+    #             return executor.join()
+    #         thread = threading.Thread(target=monitor, args=(self,))
+    #         thread.start()
+    #         self.started = True
+    #     return self.started
+
+    # def get_results(self, block = True, timeout = None) -> list[str]:
+    #     if not block:
+    #         return self._results#super().get_results(block, timeout)
+    #     else:
+    #         while True:
+    #             while result := self.results.get():
+    #                 if result != RESULT_SENTINEL:
+    #                     self._results.append(result)
+    #             if self.results.empty() and not self.results.qsize() and result == RESULT_SENTINEL:
+    #                 break
+    #         return self._results
+
+    def join(self, timeout= None) -> bool:
+        if self.in_executor:
+            raise RuntimeError("can't do self-joining.")
+        if Executor.join(self, timeout):#super(ProcessExecutor, self).join(timeout):# self.in_parent:
+            # self.joined.value = 1
+            self.get_results()  # Wait by results' Queue
+            return super(ProcessExecutor, self).join(timeout)   # Wait by process
+        return False
 
     @staticmethod
     def worker(
@@ -49,6 +86,8 @@ class ProcessExecutor(ThreadExecutor):
             results,
             iworkers,
             is_shutdown,
+            joined,
+
             max_workers,
             parent_pid = multiprocessing.current_process().ident
         ):
@@ -58,6 +97,7 @@ class ProcessExecutor(ThreadExecutor):
         # executor.create     = create
         executor.iworkers   = iworkers
         executor.is_shutdown= is_shutdown
+        executor.joined     = joined
         logger.debug(
             f"{Logging.info(executor.__class__.__name__)}. "
             f"Dummy '{executor.__class__.__name__}' created and setuped."
@@ -82,6 +122,7 @@ class ProcessExecutor(ThreadExecutor):
                                         self.results,
                                         self.iworkers,
                                         self.is_shutdown,
+                                        self.joined,
                                         1,
                                         DUMMY
                                     ) + args,
@@ -92,11 +133,13 @@ class ProcessExecutor(ThreadExecutor):
                 f"{Logging.info(self.__class__.__name__)}. "
                 f"Executor:{self.executor} created."
             )
+        self.iworkers.value += 1
         return self.executor
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
-        if task is not None and hasattr(task, "executor"):
+        if task is not None:# and hasattr(task, "executor"):
             task.executor = None
+            task.results    = None
         return super(ProcessExecutor, self).submit(task, *args, **kwargs)
     
     # def __bool__(self) -> bool:
