@@ -28,14 +28,16 @@ class ProcessPoolExecutor(PoolExecutor):
     @classmethod
     def init(cls, /, *args, **kwargs):
         cls.creator = concurrent.futures.ProcessPoolExecutor
+        cls.event   = multiprocessing.Event
         return True
     
     def __init__(self):
         super(ProcessPoolExecutor, self).__init__()
         self.tasks      = multiprocessing.Queue()
-        self.results = multiprocessing.Queue()
-        self.is_shutdown= Value(0)
-
+        self.results    = multiprocessing.Queue()
+        # self.lock       = multiprocessing.Lock()
+        self.is_shutdown= multiprocessing.Value("B", 0)
+        # self.lock       = multiprocessing.Condition()
         self._results   = []
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:

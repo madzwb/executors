@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import queue
+import threading
 
 from concurrent.futures import Future
 from typing import  Callable
@@ -12,6 +13,8 @@ from executors.logger   import logger
 from executors.value    import Value
 
 class PoolExecutor(Executor):
+
+    event = None
 
     def __init__(self):
         super(PoolExecutor, self).__init__()
@@ -31,36 +34,35 @@ class PoolExecutor(Executor):
             results = future.result()
         except Exception as e:
             results = str(e)
-            processed = Executor.process_results(future.results, results) # type: ignore
+            processed = Executor.process_results(future.executor.results, results) # type: ignore
             if processed > 0:
-                future.results.put_nowait(RESULT_SENTINEL)
+                future.executor.results.put_nowait(RESULT_SENTINEL)
+            future.callback_completed.set()
             return
         
         if isinstance(results, tuple):
             tasks   = results[1] if len(results) > 1 else None
             results = results[0] if len(results) > 0 else None
-        # Process results
-        if      results                     \
-            and hasattr(future, "results")  \
-            and hasattr(future, "task")         \
-            and future.results is not None  \
-            and future.results != results   \
-        :
-            processed = Executor.process_results(future.results, results) # type: ignore
-            if processed > 0:
-                future.results.put_nowait(RESULT_SENTINEL)
-            logger.info(
-                f"{Logging.info(PoolExecutor.__class__.__name__)}. " # type: ignore
-                f"{future.task} done."
-            )
+
         # Process actions
-        if      tasks                     \
-            and hasattr(future, "executor") \
-            and future.executor is not None \
-        :
+        if tasks:
+            # executor.lock.acquire()
             for task in tasks:
                 future.executor.submit(task)
             future.executor.submit(TASK_SENTINEL)
+
+        # Process results
+        if results:
+            processed = Executor.process_results(future.executor.results, results) # type: ignore
+            if processed > 0:
+                future.executor.results.put_nowait(RESULT_SENTINEL)
+
+            if hasattr(future, "task"):
+                logger.info(
+                    f"{Logging.info(PoolExecutor.__name__)}. " # type: ignore
+                    f"{future.task} done."
+                )
+        future.callback_completed.set()
 
     def start(self, wait = True):
         if self.creator and not super(PoolExecutor, self).start():
@@ -77,6 +79,10 @@ class PoolExecutor(Executor):
             raise RuntimeError("can't join from child.")
         super(PoolExecutor, self).join(timeout)
         result = concurrent.futures.wait(self.futures, timeout, return_when="ALL_COMPLETED")
+        # Wait for all 'complete_action' callbacks has be executed
+        for future in result.done:
+            future.callback_completed.wait()
+            self.futures.remove(future)
         return True
 
     def submit(self, task: Callable|None = None, /, *args, **kwargs) -> bool:
@@ -86,8 +92,8 @@ class PoolExecutor(Executor):
                 f"{task} scheduled. "
             )
             future = self.executor.submit(task, *args, **kwargs)
+            future.callback_completed = self.event()
             setattr(future, "executor", self)
-            setattr(future, "results", self.results)
             setattr(future, "task", str(task))
             future.add_done_callback(PoolExecutor.complete_action)
             self.futures.append(future)

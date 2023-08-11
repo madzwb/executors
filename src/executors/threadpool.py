@@ -24,6 +24,7 @@ class ThreadPoolExecutor(PoolExecutor):
     @classmethod
     def init(cls, /, *args, **kwargs) -> bool:
         cls.creator = concurrent.futures.ThreadPoolExecutor
+        cls.event   = threading.Event
         return True
 
     def __init__(self):
