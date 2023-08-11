@@ -84,7 +84,7 @@ class Executor(iexecutor.IExecutor):
                 self.tasks.task_done()
             # Get and mark all sentinel tasks as done
             tries = 0
-            while task is None and tries <= self.MAX_TRIES:
+            while task is None and tries < self.MAX_TRIES:
                 try:
                     task = self.tasks.get_nowait()
                     if task is None:
@@ -92,13 +92,26 @@ class Executor(iexecutor.IExecutor):
                                 self.tasks,
                                 multiprocessing.queues.JoinableQueue
                             ):
-                            tasks.task_done()
+                            self.tasks.task_done()
+                        tries = 0
+                        logger.debug(
+                            f"{Logging.info(self.__class__.__name__)}. "
+                            f"TASK_SENTINEL skipped."
+                        )
                     else:
+                        logger.debug(
+                            f"{Logging.info(self.__class__.__name__)}. "
+                            f"{task} gotten."
+                        )
                         break
                 except Exception as e: # Fucking shit
                     task = None
                     tries += 1
-                    if tries <= self.MAX_TRIES:
+                    logger.debug(
+                        f"{Logging.info(self.__class__.__name__)}. "
+                        f"Got exception: {e}."
+                    )
+                    if tries < self.MAX_TRIES:
                         time.sleep(tries)
                         continue
                     break

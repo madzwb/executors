@@ -154,7 +154,7 @@ class Worker(Executor):
             # On empty put back sentinel for other workers
             if task is None and executor.iworkers.value > 0:
                 executor.tasks.put_nowait(TASK_SENTINEL)
-                logger.info(
+                logger.debug(
                     f"{Logging.info(caller)}. "
                     f"{task} - sentinel putted back."
                 )
