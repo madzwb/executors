@@ -16,6 +16,8 @@ class InThreadPool(descriptors.InChilds):
 
 class ThreadPoolExecutor(PoolExecutor):
 
+    MAX_UNITS    = 32
+
     in_parent   = descriptors.InParentProcess()
     in_executor = InThreadPool()
     # in_parent_thread = InParentThread()
@@ -27,8 +29,8 @@ class ThreadPoolExecutor(PoolExecutor):
         cls.event   = threading.Event
         return True
 
-    def __init__(self):
-        super(ThreadPoolExecutor, self).__init__()
+    def __init__(self, max_workers = None):
+        super(ThreadPoolExecutor, self).__init__(max_workers)
 
     # def __bool__(self) -> bool:
     #     return True

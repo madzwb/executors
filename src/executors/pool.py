@@ -16,7 +16,7 @@ class PoolExecutor(Executor):
 
     event = None
 
-    def __init__(self):
+    def __init__(self, max_workers = None):
         super(PoolExecutor, self).__init__()
 
         self.futures    = []
@@ -25,6 +25,17 @@ class PoolExecutor(Executor):
 
         self.results    = queue.Queue()
         # self.start()
+        if not max_workers:
+            if max_workers := os.cpu_count():
+                self.max_workers = max_workers
+            else:
+                self.max_workers = 1
+                logger.warning(
+                    f"{Logging.info(self.__class__.__name__)}. "
+                    f"Max workers set {self.max_workers}."
+                )
+        else:
+            self.max_workers = min(self.MAX_UNITS, max_workers)
 
     @staticmethod
     def complete_action(future: Future):
@@ -66,7 +77,7 @@ class PoolExecutor(Executor):
 
     def start(self, wait = True):
         if self.creator and not super(PoolExecutor, self).start():
-            self.executor   = self.creator(os.cpu_count())
+            self.executor   = self.creator(self.max_workers)
             self.started = True
             logger.debug(
                 f"{Logging.info(self.__class__.__name__)}. "

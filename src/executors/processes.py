@@ -41,7 +41,7 @@ class ProcessesExecutor(Workers):
     def __init__(
             self,
             max_workers = None,
-            parent_pid = multiprocessing.current_process().ident
+            parent_pid  = multiprocessing.current_process().ident
             , * ,
             wait = False
         ):

@@ -22,6 +22,8 @@ class InProcessPool(InChilds):
 
 class ProcessPoolExecutor(PoolExecutor):
 
+    MAX_UNITS   = 61
+
     in_parent   = descriptors.InParentProcess()
     in_executor = InProcessPool()
 
@@ -31,8 +33,8 @@ class ProcessPoolExecutor(PoolExecutor):
         cls.event   = multiprocessing.Event
         return True
     
-    def __init__(self):
-        super(ProcessPoolExecutor, self).__init__()
+    def __init__(self, max_workers = None):
+        super(ProcessPoolExecutor, self).__init__(max_workers)
         self.tasks      = multiprocessing.Queue()
         self.results    = multiprocessing.Queue()
         # self.lock       = multiprocessing.Lock()

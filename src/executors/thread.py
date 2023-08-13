@@ -28,8 +28,13 @@ class ThreadExecutor(MainThreadExecutor, Worker):
         # cls.current = threading.current_thread
         return True
 
-    def __init__(self, parent_pid = multiprocessing.current_process().ident):
+    def __init__(
+            self,
+            max_workers = 1,
+            parent_pid  = multiprocessing.current_process().ident
+        ):
         super(ThreadExecutor, self).__init__(parent_pid)
+        self.max_workers= max_workers
         self.tasks      = queue.Queue()
         self.iworkers   = Value(1)
         self.is_shutdown= Value(0)

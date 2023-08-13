@@ -49,7 +49,7 @@ class Workers(Worker):
         self.is_shutdown= Value(0)
         self.max_workers= 1
 
-        if max_workers is None:
+        if not max_workers:
             if max_workers := os.cpu_count():
                 self.max_workers = max_workers
             else:
