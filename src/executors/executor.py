@@ -151,16 +151,20 @@ class Executor(iexecutor.IExecutor):
         return result
 
     def start(self, wait = True):
+        message = ""
         if self.started:
-            logger.debug(
-                f"{Logging.info(self.__class__.__name__)}. "
-                f"Executor:{self.executor} started already."
-            )
+            message += f"{Logging.info(self.__class__.__name__)}. "
+            message += f"Executor:{self.executor} is started already."  \
+                            if self.executor is not None                \
+                            else                                        \
+                        "Executor is started already."
         else:
-            logger.debug(
-                f"{Logging.info(self.__class__.__name__)}. "
-                f"Executor:{self.executor} going to start."
-            )
+            message +=  f"{Logging.info(self.__class__.__name__)}. "
+            message +=  f"Executor:{self.executor} going to start." \
+                            if self.executor is not None            \
+                            else                                    \
+                        "Going to start."
+        logger.debug(message)
         return self.started
 
     def join(self, timeout = None) -> bool:
