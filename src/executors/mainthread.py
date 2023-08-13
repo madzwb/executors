@@ -17,7 +17,11 @@ class MainThreadExecutor(Executor):
     in_parent   = descriptors.InParentProcess() # Check if in process-creator
     in_executor = descriptors.InParentThread()  # Check if in thread-creator
 
-    def __init__(self, parent_pid = multiprocessing.current_process().ident):
+    def __init__(
+            self,
+            max_workers = 0,
+            parent_pid  = multiprocessing.current_process().ident
+        ):
         super(MainThreadExecutor, self).__init__(parent_pid)
         self.executor   = threading.current_thread()
         self.results    = queue.Queue()
